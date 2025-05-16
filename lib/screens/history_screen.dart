@@ -26,7 +26,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _loadTransactions() async {
     final transactions = await DatabaseHelper.instance.getTransactions();
     setState(() {
-      _transactions = transactions;
+      _transactions = transactions.cast<Transaction>();
     });
   }
 

@@ -17,7 +17,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _noteController = TextEditingController();
   bool _isExpense = true;
   String _selectedCategory = Constants.categories.first;
-  DateTime _selectedDate = DateTime.now();
+  final DateTime _selectedDate = DateTime.now();
   
   double _totalIncome = 0;
   double _totalExpense = 0;

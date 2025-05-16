@@ -1,32 +1,32 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite/sqflite.dart' as sql;
 import 'package:path/path.dart';
 import '../models/transaction.dart';
 import '../models/budget.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
+  static sql.Database? _database;
 
   DatabaseHelper._init();
 
-  Future<Database> get database async {
+  Future<sql.Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('expense_tracker.db');
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
+  Future<sql.Database> _initDB(String filePath) async {
+    final dbPath = await sql.getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(
+    return await sql.openDatabase(
       path,
       version: 1,
       onCreate: _createDB,
     );
   }
 
-  Future<void> _createDB(Database db, int version) async {
+  Future<void> _createDB(sql.Database db, int version) async {
     await db.execute('''
       CREATE TABLE transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

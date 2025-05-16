@@ -60,7 +60,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     setState(() {
-      _transactions = transactions;
+      _transactions = transactions.cast<Transaction>();
       _categoryTotals = totals;
       _totalExpense = total;
     });
