@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../models/transaction.dart';
 import '../services/database_helper.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +13,6 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   String _selectedPeriod = Constants.periods.first;
-  List<Transaction> _transactions = [];
   Map<String, double> _categoryTotals = {};
   double _totalExpense = 0;
 
@@ -60,7 +58,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     setState(() {
-      _transactions = transactions.cast<Transaction>();
       _categoryTotals = totals;
       _totalExpense = total;
     });

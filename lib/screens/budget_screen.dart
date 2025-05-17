@@ -3,7 +3,6 @@ import '../models/budget.dart';
 import '../services/database_helper.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -13,11 +12,13 @@ class BudgetScreen extends StatefulWidget {
 }
 
 class _BudgetScreenState extends State<BudgetScreen> {
+  List<Budget> _budgets = [];
+  Map<String, double> _categorySpending = {};
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   String? _selectedCategory;
-  List<Budget> _budgets = [];
-  Map<String, double> _currentSpending = {};
+  DateTime _startDate = DateTime.now();
+  DateTime _endDate = DateTime.now().add(const Duration(days: 30));
 
   @override
   void initState() {
@@ -27,84 +28,65 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
   Future<void> _loadBudgets() async {
     final budgets = await DatabaseHelper.instance.getBudgets();
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final transactions = await DatabaseHelper.instance
-        .getTransactionsByDateRange(startOfMonth, now);
-
-    final spending = <String, double>{};
+    final transactions = await DatabaseHelper.instance.getTransactions();
+    
+    // Calculate spending for each category
+    final Map<String, double> spending = {};
     for (var transaction in transactions) {
       if (transaction.isExpense) {
-        spending[transaction.category] =
-            (spending[transaction.category] ?? 0) + transaction.amount;
+        final category = transaction.category;
+        spending[category] = (spending[category] ?? 0) + transaction.amount;
       }
     }
 
     setState(() {
       _budgets = budgets;
-      _currentSpending = spending;
+      _categorySpending = spending;
     });
+  }
 
-    // Check for budget alerts
-    for (var budget in budgets) {
-      final categorySpending = spending[budget.category ?? 'overall'] ?? 0;
-      if (categorySpending > budget.amount) {
-        _showBudgetAlert(budget, categorySpending);
-      }
+  double _getBudgetProgress(Budget budget) {
+    if (budget.category == null) {
+      // Overall budget
+      final totalSpent =
+          _categorySpending.values.fold(0.0, (sum, amount) => sum + amount);
+      return totalSpent / budget.amount;
+    } else {
+      // Category-specific budget
+      final spent = _categorySpending[budget.category] ?? 0;
+      return spent / budget.amount;
     }
   }
 
-  Future<void> _showBudgetAlert(Budget budget, double spending) async {
-    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-    const androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'budget_alerts',
-      'Budget Alerts',
-      channelDescription: 'Notifications for budget alerts',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const platformChannelSpecifics =
-        NotificationDetails(android: androidPlatformChannelSpecifics);
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      'Budget Alert',
-      'Your ${budget.category ?? 'overall'} spending (\$${spending.toStringAsFixed(2)}) '
-          'has exceeded the budget of \$${budget.amount.toStringAsFixed(2)}',
-      platformChannelSpecifics,
-    );
+  Color _getProgressColor(double progress) {
+    if (progress >= 1.0) return Colors.red;
+    if (progress >= 0.8) return Colors.orange;
+    if (progress >= 0.5) return Colors.yellow;
+    return Colors.green;
   }
 
-  void _showAddBudgetModal() {
-    showModalBottomSheet(
+  Future<void> _showAddBudgetDialog() async {
+    _amountController.clear();
+    _selectedCategory = null;
+    _startDate = DateTime.now();
+    _endDate = DateTime.now().add(const Duration(days: 30));
+
+    await showDialog(
       context: context,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: Form(
+      builder: (context) => AlertDialog(
+        title: const Text('Add Budget'),
+        content: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Set Budget',
-                style: Theme.of(context).textTheme.titleLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
               TextFormField(
                 controller: _amountController,
-                keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Amount',
-                  border: OutlineInputBorder(),
+                  prefixText: '\$',
                 ),
+                keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter an amount';
@@ -116,19 +98,18 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String?>(
+              DropdownButtonFormField<String>(
                 value: _selectedCategory,
                 decoration: const InputDecoration(
                   labelText: 'Category (Optional)',
-                  border: OutlineInputBorder(),
                 ),
                 items: [
-                  const DropdownMenuItem<String?>(
+                  const DropdownMenuItem<String>(
                     value: null,
                     child: Text('Overall Budget'),
                   ),
-                  ...Constants.categories.map(
-                    (category) => DropdownMenuItem<String?>(
+                  ...Constants.expenseCategories.map(
+                    (category) => DropdownMenuItem<String>(
                       value: category,
                       child: Text(category),
                     ),
@@ -141,97 +122,173 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _saveBudget,
-                child: const Text('Save Budget'),
+              ListTile(
+                title: const Text('Start Date'),
+                subtitle: Text(DateFormat.yMMMd().format(_startDate)),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _startDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    setState(() {
+                      _startDate = date;
+                    });
+                  }
+                },
               ),
-              const SizedBox(height: 16),
+              ListTile(
+                title: const Text('End Date'),
+                subtitle: Text(DateFormat.yMMMd().format(_endDate)),
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _endDate,
+                    firstDate: _startDate,
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) {
+                    setState(() {
+                      _endDate = date;
+                    });
+                  }
+                },
+              ),
             ],
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (_formKey.currentState!.validate()) {
+                final budget = Budget(
+                  amount: double.parse(_amountController.text),
+                  category: _selectedCategory,
+                  startDate: _startDate,
+                  endDate: _endDate,
+                );
+                await DatabaseHelper.instance.insertBudget(budget);
+                if (mounted) {
+                  Navigator.pop(context);
+                  _loadBudgets();
+                }
+              }
+            },
+            child: const Text('Add'),
+          ),
+        ],
       ),
     );
-  }
-
-  Future<void> _saveBudget() async {
-    if (_formKey.currentState!.validate()) {
-      final now = DateTime.now();
-      final budget = Budget(
-        amount: double.parse(_amountController.text),
-        category: _selectedCategory,
-        startDate: DateTime(now.year, now.month, 1),
-        endDate: DateTime(now.year, now.month + 1, 0),
-      );
-
-      await DatabaseHelper.instance.insertBudget(budget);
-      _amountController.clear();
-      _selectedCategory = null;
-      if (mounted) {
-        Navigator.pop(context);
-        _loadBudgets();
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Budgets'),
+        title: const Text('Budget'),
       ),
-      body: ListView.builder(
-        itemCount: _budgets.length,
-        itemBuilder: (context, index) {
-          final budget = _budgets[index];
-          final spending = _currentSpending[budget.category ?? 'overall'] ?? 0;
-          final progress = spending / budget.amount;
+      body: _budgets.isEmpty
+          ? const Center(
+              child: Text('No budgets set'),
+            )
+          : ListView.builder(
+              itemCount: _budgets.length,
+              itemBuilder: (context, index) {
+                final budget = _budgets[index];
+                final progress = _getBudgetProgress(budget);
+                final progressColor = _getProgressColor(progress);
+                final spent = budget.category == null
+                    ? _categorySpending.values
+                        .fold(0.0, (sum, amount) => sum + amount)
+                    : _categorySpending[budget.category] ?? 0;
 
-          return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                return Card(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        budget.category ?? 'Overall Budget',
-                        style: Theme.of(context).textTheme.titleMedium,
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  budget.category ?? 'Overall Budget',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                Text(
+                                  NumberFormat.currency(symbol: '\$')
+                                      .format(budget.amount),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${DateFormat.yMMMd().format(budget.startDate)} - ${DateFormat.yMMMd().format(budget.endDate)}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Spent: ${NumberFormat.currency(symbol: '\$').format(spent)}',
+                                  style: TextStyle(
+                                    color: progressColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  '${(progress * 100).toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    color: progressColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      Text(
-                        '${(progress * 100).toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          color: progress >= 1 ? Colors.red : Colors.green,
-                          fontWeight: FontWeight.bold,
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(4),
+                        ),
+                        child: LinearProgressIndicator(
+                          value: progress.clamp(0.0, 1.0),
+                          backgroundColor: Colors.grey[200],
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(progressColor),
+                          minHeight: 8,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      progress >= 1 ? Colors.red : Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Spent: ${NumberFormat.currency(symbol: '\$').format(spending)} '
-                    'of ${NumberFormat.currency(symbol: '\$').format(budget.amount)}',
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddBudgetModal,
-        label: const Text('Set Budget'),
-        icon: const Icon(Icons.add),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddBudgetDialog,
+        child: const Icon(Icons.add),
       ),
     );
   }

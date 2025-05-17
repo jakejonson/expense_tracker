@@ -1,57 +1,187 @@
 import 'package:flutter/material.dart';
-import 'screens/home_screen.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/budget_screen.dart';
+import 'screens/report_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize notifications
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
-  
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
-  
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
-
-  runApp(const ExpenseTrackerApp());
+void main() {
+  runApp(const MyApp());
 }
 
-class ExpenseTrackerApp extends StatelessWidget {
-  const ExpenseTrackerApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Expense Tracker',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        brightness: Brightness.light,
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
+      theme: ThemeData.dark().copyWith(
+        colorScheme: ColorScheme.dark(
+          primary: Colors.blue.shade400,
+          secondary: Colors.tealAccent,
+          surface: const Color(0xFF1E1E1E),
+          error: Colors.red.shade400,
         ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        cardTheme: CardTheme(
+          color: const Color(0xFF1E1E1E),
           elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-        cardTheme: const CardTheme(
-          elevation: 1,
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
+        appBarTheme: AppBarTheme(
+          backgroundColor: const Color(0xFF1E1E1E),
           elevation: 0,
+          centerTitle: true,
+          titleTextStyle: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: const Color(0xFF2C2C2C),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Colors.blue.shade400,
+              width: 2,
+            ),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: Colors.red.shade400,
+              width: 2,
+            ),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue.shade400,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 12,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.blue.shade400,
+          ),
+        ),
+        segmentedButtonTheme: SegmentedButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith<Color>(
+              (Set<WidgetState> states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.blue.shade400;
+                }
+                return const Color(0xFF2C2C2C);
+              },
+            ),
+            foregroundColor: WidgetStateProperty.resolveWith<Color>(
+              (Set<WidgetState> states) {
+                if (states.contains(WidgetState.selected)) {
+                  return Colors.white;
+                }
+                return Colors.grey.shade400;
+              },
+            ),
+          ),
+        ),
+        iconTheme: const IconThemeData(
+          color: Colors.white,
+        ),
+        dividerTheme: const DividerThemeData(
+          color: Color(0xFF2C2C2C),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          backgroundColor: const Color(0xFF2C2C2C),
+          contentTextStyle: const TextStyle(color: Colors.white),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+        dialogTheme: DialogTheme(
+          backgroundColor: const Color(0xFF1E1E1E),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
         ),
       ),
-      home: const HomeScreen(),
+      home: const MainScreen(),
+    );
+  }
+}
+
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const DashboardScreen(),
+    const HistoryScreen(),
+    const BudgetScreen(),
+    const ReportScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.dashboard),
+            label: 'Dashboard',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history),
+            label: 'History',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_balance_wallet),
+            label: 'Budget',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart),
+            label: 'Reports',
+          ),
+        ],
+      ),
     );
   }
 } 

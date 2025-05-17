@@ -71,6 +71,45 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
+  Future<List<Transaction>> getTransactionsByCategory(String category) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'category = ?',
+      whereArgs: [category],
+    );
+    return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
+  }
+
+  Future<void> updateTransactionCategory(int id, String newCategory) async {
+    final db = await database;
+    await db.update(
+      'transactions',
+      {'category': newCategory},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> updateTransaction(Transaction transaction) async {
+    final db = await database;
+    return await db.update(
+      'transactions',
+      transaction.toMap(),
+      where: 'id = ?',
+      whereArgs: [transaction.id],
+    );
+  }
+
+  Future<int> deleteTransaction(int id) async {
+    final db = await database;
+    return await db.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // Budget operations
   Future<int> insertBudget(Budget budget) async {
     final db = await database;

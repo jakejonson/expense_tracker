@@ -16,6 +16,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String? _selectedCategory;
   bool? _isExpense;
   final _searchController = TextEditingController();
+  final _editAmountController = TextEditingController();
+  final _editNoteController = TextEditingController();
 
   @override
   void initState() {
@@ -28,6 +30,156 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       _transactions = transactions.cast<Transaction>();
     });
+  }
+
+  Future<void> _editTransaction(Transaction transaction) async {
+    _editAmountController.text = transaction.amount.toString();
+    _editNoteController.text = transaction.note ?? '';
+    bool isExpense = transaction.isExpense;
+    String selectedCategory = transaction.category;
+    DateTime selectedDate = transaction.date;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Transaction'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _editAmountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: true,
+                      label: Text('Expense'),
+                      icon: Icon(Icons.remove),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Income'),
+                      icon: Icon(Icons.add),
+                    ),
+                  ],
+                  selected: {isExpense},
+                  onSelectionChanged: (Set<bool> newSelection) {
+                    setState(() {
+                      isExpense = newSelection.first;
+                      selectedCategory = isExpense
+                          ? Constants.expenseCategories.first
+                          : Constants.incomeCategories.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: (isExpense
+                          ? Constants.expenseCategories
+                          : Constants.incomeCategories)
+                      .map((category) => DropdownMenuItem(
+                            value: category,
+                            child: Row(
+                              children: [
+                                Icon(Constants.categoryIcons[category]),
+                                const SizedBox(width: 8),
+                                Text(category),
+                              ],
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (String? value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedCategory = value;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        selectedDate = picked;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      DateFormat.yMMMd().format(selectedDate),
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _editNoteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Note (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_editAmountController.text.isNotEmpty &&
+                    double.tryParse(_editAmountController.text) != null) {
+                  Navigator.pop(context, true);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      final updatedTransaction = Transaction(
+        id: transaction.id,
+        amount: double.parse(_editAmountController.text),
+        isExpense: isExpense,
+        date: selectedDate,
+        category: selectedCategory,
+        note:
+            _editNoteController.text.isEmpty ? null : _editNoteController.text,
+      );
+
+      await DatabaseHelper.instance.updateTransaction(updatedTransaction);
+      _loadTransactions();
+    }
   }
 
   List<Transaction> _getFilteredTransactions() {
@@ -97,7 +249,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             value: null,
                             child: Text('All Categories'),
                           ),
-                          ...Constants.categories.map(
+                          ...(_isExpense == null || _isExpense == true
+                                  ? Constants.expenseCategories
+                                  : Constants.incomeCategories)
+                              .map(
                             (category) => DropdownMenuItem<String>(
                               value: category,
                               child: Text(category),
@@ -136,6 +291,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         onChanged: (value) {
                           setState(() {
                             _isExpense = value;
+                            _selectedCategory = null;
                           });
                         },
                       ),
@@ -150,62 +306,131 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ? const Center(
                     child: Text('No transactions found'),
                   )
-                : ListView.builder(
-                    itemCount: filteredTransactions.length,
-                    itemBuilder: (context, index) {
-                      final transaction = filteredTransactions[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: transaction.isExpense
-                                ? Colors.red
-                                : Colors.green,
-                            child: Icon(
-                              Constants.categoryIcons[transaction.category],
-                              color: Colors.white,
-                            ),
-                          ),
-                          title: Text(transaction.category),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                DateFormat.yMMMd().format(transaction.date),
-                              ),
-                              if (transaction.note != null)
-                                Text(
-                                  transaction.note!,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                            ],
-                          ),
-                          trailing: Text(
-                            NumberFormat.currency(symbol: '\$')
-                                .format(transaction.amount),
-                            style: TextStyle(
-                              color: transaction.isExpense
-                                  ? Colors.red
-                                  : Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                : _buildTransactionList(),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildTransactionList() {
+    return ListView.builder(
+      itemCount: _transactions.length,
+      itemBuilder: (context, index) {
+        final transaction = _transactions[index];
+        return Dismissible(
+          key: Key(transaction.id.toString()),
+          background: Container(
+            color: Colors.red,
+            alignment: Alignment.centerRight,
+            padding: const EdgeInsets.only(right: 16),
+            child: const Icon(
+              Icons.delete,
+              color: Colors.white,
+            ),
+          ),
+          direction: DismissDirection.endToStart,
+          confirmDismiss: (direction) async {
+            return await showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                return AlertDialog(
+                  title: const Text('Delete Transaction'),
+                  content: const Text(
+                      'Are you sure you want to delete this transaction?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+          onDismissed: (direction) async {
+            await DatabaseHelper.instance.deleteTransaction(transaction.id!);
+            setState(() {
+              _transactions.removeAt(index);
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                    '${transaction.isExpense ? 'Expense' : 'Income'} deleted'),
+                action: SnackBarAction(
+                  label: 'Undo',
+                  onPressed: () async {
+                    await DatabaseHelper.instance
+                        .insertTransaction(transaction);
+                    setState(() {
+                      _transactions.insert(index, transaction);
+                    });
+                  },
+                ),
+              ),
+            );
+          },
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: transaction.isExpense
+                    ? Colors.red.withOpacity(0.1)
+                    : Colors.green.withOpacity(0.1),
+                child: Icon(
+                  transaction.isExpense ? Icons.remove : Icons.add,
+                  color: transaction.isExpense ? Colors.red : Colors.green,
+                ),
+              ),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      transaction.category,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  Text(
+                    NumberFormat.currency(symbol: '\$')
+                        .format(transaction.amount),
+                    style: TextStyle(
+                      color: transaction.isExpense ? Colors.red : Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (transaction.note != null && transaction.note!.isNotEmpty)
+                    Text(transaction.note!),
+                  Text(
+                    DateFormat.yMMMd().format(transaction.date),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => _editTransaction(transaction),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+    _editAmountController.dispose();
+    _editNoteController.dispose();
     super.dispose();
   }
 } 
