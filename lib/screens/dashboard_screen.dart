@@ -415,6 +415,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             _amountController.clear();
                             _noteController.clear();
                             _loadTransactions();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${_isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} added successfully',
+                                  ),
+                                  backgroundColor:
+                                      _isExpense ? Colors.red : Colors.green,
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
                           }
                         },
                         child: const Text('Save Transaction'),
