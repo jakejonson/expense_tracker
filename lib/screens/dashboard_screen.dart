@@ -19,6 +19,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
   bool _isExpense = true;
+  bool _isRecurring = false;
+  String _selectedFrequency = 'weekly';
   String _selectedCategory = Constants.expenseCategories.first;
   DateTime _selectedDate = DateTime.now();
   List<Transaction> _transactions = [];
@@ -28,6 +30,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Budget> _budgets = [];
   double _totalBudget = 0;
   double _totalSpent = 0;
+  double _monthlySpending = 0;
+  double _monthlyBudget = 0;
 
   @override
   void initState() {
@@ -353,6 +357,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      SwitchListTile(
+                        title: const Text('Recurring Transaction'),
+                        value: _isRecurring,
+                        onChanged: (value) {
+                          setState(() {
+                            _isRecurring = value;
+                          });
+                        },
+                      ),
+                      if (_isRecurring) ...[
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _selectedFrequency,
+                          decoration: const InputDecoration(
+                            labelText: 'Frequency',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'weekly',
+                              child: Text('Weekly'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'biweekly',
+                              child: Text('Bi-weekly'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'monthly',
+                              child: Text('Monthly'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'yearly',
+                              child: Text('Yearly'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            if (value != null) {
+                              setState(() {
+                                _selectedFrequency = value;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 16),
                       InkWell(
                         onTap: () async {
                           final DateTime? picked = await showDatePicker(
@@ -402,12 +451,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           if (_formKey.currentState!.validate()) {
                             final transaction = Transaction(
                               amount: double.parse(_amountController.text),
-                              isExpense: _isExpense,
-                              date: _selectedDate,
                               category: _selectedCategory,
                               note: _noteController.text.isEmpty
                                   ? null
                                   : _noteController.text,
+                              date: _selectedDate,
+                              isExpense: _isExpense,
+                              isRecurring: _isRecurring ? 1 : 0,
+                              frequency:
+                                  _isRecurring ? _selectedFrequency : null,
                             );
 
                             await DatabaseHelper.instance
@@ -423,8 +475,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                   backgroundColor:
                                       _isExpense ? Colors.red : Colors.green,
-                                  duration: const Duration(seconds: 2),
-                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 1),
                                 ),
                               );
                             }

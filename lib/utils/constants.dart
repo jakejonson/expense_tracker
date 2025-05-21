@@ -12,13 +12,11 @@ class Constants {
     'Utilities',
     'Healthcare',
     'Education',
-    'Other'
   ];
 
   static List<String> incomeCategories = [
     'Salary',
     'Freelance',
-    'Government',
     'Tax Refund',
     'Other'
   ];
@@ -38,7 +36,6 @@ class Constants {
     // Income icons
     'Salary': Icons.work,
     'Freelance': Icons.computer,
-    'Government': Icons.account_balance,
     'Tax Refund': Icons.receipt_long,
     'Other': Icons.more_horiz,
   };
