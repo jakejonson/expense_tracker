@@ -69,8 +69,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _loadBudgets() async {
     final budgets = await DatabaseHelper.instance.getBudgets();
     setState(() {
-      _budgets = budgets;
-      _totalBudget = budgets.fold(0, (sum, budget) => sum + budget.amount);
+      _budgets = budgets.where((budget) => budget.category == null).toList();
+      _totalBudget = _budgets.fold(0, (sum, budget) => sum + budget.amount);
     });
     _calculateSpending();
   }

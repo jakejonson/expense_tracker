@@ -107,7 +107,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 onTap: () async {
                   final picked = await showDateRangePicker(
                     context: context,
-                    firstDate: DateTime.now(),
+                    firstDate: DateTime(2000),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                     initialDateRange: selectedDateRange,
                   );
@@ -224,7 +224,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                 onTap: () async {
                   final picked = await showDateRangePicker(
                     context: context,
-                    firstDate: DateTime.now(),
+                    firstDate: DateTime(2000),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                     initialDateRange: selectedDateRange,
                   );
