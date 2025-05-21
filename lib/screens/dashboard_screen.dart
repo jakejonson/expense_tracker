@@ -103,6 +103,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  Future<void> _checkBudgetSurpassed(double amount) async {
+    final budgets = await DatabaseHelper.instance.getBudgets();
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    for (var budget in budgets) {
+      if (budget.startDate.isBefore(endOfMonth) &&
+          budget.endDate.isAfter(startOfMonth)) {
+        double spent = 0;
+        if (budget.category == null) {
+          // Overall budget
+          spent =
+              _categorySpending.values.fold(0.0, (sum, amount) => sum + amount);
+        } else {
+          // Category-specific budget
+          spent = _categorySpending[budget.category!] ?? 0;
+        }
+
+        if (spent > budget.amount && !budget.hasSurpassed) {
+          if (!mounted) return;
+
+          final shouldMark = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Budget Surpassed'),
+              content: Text(
+                'You have exceeded your ${budget.category ?? 'overall'} budget of \$${budget.amount.toStringAsFixed(2)}.\n\nCurrent spending: \$${spent.toStringAsFixed(2)}',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+
+          if (shouldMark == true && mounted) {
+            await DatabaseHelper.instance.markBudgetAsSurpassed(budget.id!);
+          }
+        }
+      }
+    }
+  }
+
   Widget _buildGaugeChart() {
     if (_totalBudget == 0) {
       return const Card(
@@ -466,7 +513,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 .insertTransaction(transaction);
                             _amountController.clear();
                             _noteController.clear();
-                            _loadTransactions();
+                            await _loadTransactions();
+
+                            // Check if any budgets are surpassed after adding the transaction
+                            if (_isExpense) {
+                              await _checkBudgetSurpassed(transaction.amount);
+                            }
+
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

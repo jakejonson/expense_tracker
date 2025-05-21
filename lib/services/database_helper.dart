@@ -57,7 +57,8 @@ class DatabaseHelper {
         amount REAL NOT NULL,
         category TEXT,
         startDate TEXT NOT NULL,
-        endDate TEXT NOT NULL
+        endDate TEXT NOT NULL,
+        hasSurpassed INTEGER NOT NULL DEFAULT 0
       )
     ''');
   }
@@ -149,6 +150,16 @@ class DatabaseHelper {
     final db = await instance.database;
     await db.delete(
       'budgets',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> markBudgetAsSurpassed(int id) async {
+    final db = await instance.database;
+    await db.update(
+      'budgets',
+      {'hasSurpassed': 1},
       where: 'id = ?',
       whereArgs: [id],
     );

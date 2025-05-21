@@ -54,10 +54,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> _showAddBudgetDialog() async {
     final amountController = TextEditingController();
     String? selectedCategory;
-    DateTimeRange selectedDateRange = DateTimeRange(
-      start: DateTime.now(),
-      end: DateTime.now().add(const Duration(days: 30)),
-    );
+    DateTime selectedDate = DateTime.now();
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -70,7 +67,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
               TextField(
                 controller: amountController,
                 decoration: const InputDecoration(
-                  labelText: 'Budget Amount',
+                  labelText: 'Monthly Budget Amount',
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
@@ -99,20 +96,20 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                title: const Text('Date Range'),
+                title: const Text('Start Date'),
                 subtitle: Text(
-                  '${DateFormat.yMMMd().format(selectedDateRange.start)} - ${DateFormat.yMMMd().format(selectedDateRange.end)}',
+                  DateFormat.yMMMd().format(selectedDate),
                 ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
-                  final picked = await showDateRangePicker(
+                  final picked = await showDatePicker(
                     context: context,
                     firstDate: DateTime(2000),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDateRange: selectedDateRange,
+                    initialDate: selectedDate,
                   );
                   if (picked != null) {
-                    selectedDateRange = picked;
+                    selectedDate = picked;
                   }
                 },
               ),
@@ -127,11 +124,15 @@ class _BudgetScreenState extends State<BudgetScreen> {
           TextButton(
             onPressed: () {
               if (amountController.text.isNotEmpty) {
+                final startDate =
+                    DateTime(selectedDate.year, selectedDate.month, 1);
+                final endDate =
+                    DateTime(selectedDate.year, selectedDate.month + 1, 0);
                 Navigator.pop(context, {
                   'amount': double.parse(amountController.text),
                   'category': selectedCategory,
-                  'startDate': selectedDateRange.start.toIso8601String(),
-                  'endDate': selectedDateRange.end.toIso8601String(),
+                  'startDate': startDate.toIso8601String(),
+                  'endDate': endDate.toIso8601String(),
                 });
               }
             },
@@ -155,7 +156,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Budget of \$${budget.amount.toStringAsFixed(2)} added successfully',
+              'Monthly budget of \$${budget.amount.toStringAsFixed(2)} added successfully',
             ),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 1),

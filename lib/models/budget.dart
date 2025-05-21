@@ -4,6 +4,7 @@ class Budget {
   final String? category; // null means overall budget
   final DateTime startDate;
   final DateTime endDate;
+  final bool hasSurpassed;
 
   Budget({
     this.id,
@@ -11,6 +12,7 @@ class Budget {
     this.category,
     required this.startDate,
     required this.endDate,
+    this.hasSurpassed = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -20,6 +22,7 @@ class Budget {
       'category': category,
       'startDate': startDate.toIso8601String(),
       'endDate': endDate.toIso8601String(),
+      'hasSurpassed': hasSurpassed ? 1 : 0,
     };
   }
 
@@ -30,6 +33,7 @@ class Budget {
       category: map['category'],
       startDate: DateTime.parse(map['startDate']),
       endDate: DateTime.parse(map['endDate']),
+      hasSurpassed: map['hasSurpassed'] == 1,
     );
   }
 } 
