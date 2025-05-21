@@ -12,7 +12,6 @@
 .swiftpm/
 migrate_working_dir/
 .dart_tool/
-.metadata
 
 # IntelliJ related
 *.iml
