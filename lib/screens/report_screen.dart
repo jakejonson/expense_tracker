@@ -89,7 +89,8 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Widget _buildPieChart(Map<String, double> categoryTotals) {
     final total =
-        categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
+        categoryTotals.values
+        .fold<double>(0.0, (sum, amount) => sum + (amount as double));
     final List<Color> colors = [
       Colors.red,
       Colors.blue,
@@ -128,7 +129,8 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Widget _buildCategoryList(Map<String, double> categoryTotals) {
     final total =
-        categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
+        categoryTotals.values
+        .fold<double>(0.0, (sum, amount) => sum + (amount as double));
     final sortedCategories = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -215,10 +217,11 @@ class _ReportScreenState extends State<ReportScreen> {
     final filteredTransactions = _getFilteredTransactions();
     final categoryTotals = _getCategoryTotals(filteredTransactions);
     final totalExpenses =
-        categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
+        categoryTotals.values
+        .fold<double>(0.0, (sum, amount) => sum + (amount as double));
     final totalIncome = filteredTransactions
         .where((t) => !t.isExpense)
-        .fold(0.0, (sum, t) => sum + t.amount);
+        .fold<double>(0.0, (sum, t) => sum + (t.amount as double));
 
     return Scaffold(
       appBar: AppBar(

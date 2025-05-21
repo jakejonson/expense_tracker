@@ -18,6 +18,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _searchController = TextEditingController();
   final _editAmountController = TextEditingController();
   final _editNoteController = TextEditingController();
+  bool _isSelectionMode = false;
+  Set<int> _selectedTransactions = {};
 
   @override
   void initState() {
@@ -28,36 +30,123 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _loadTransactions() async {
     final transactions = await DatabaseHelper.instance.getTransactions();
     setState(() {
-      _transactions = transactions.cast<Transaction>();
+      _transactions = transactions;
+      _selectedTransactions.clear();
+      _isSelectionMode = false;
     });
   }
 
-  Future<void> _editTransaction(Transaction transaction) async {
-    _editAmountController.text = transaction.amount.toString();
-    _editNoteController.text = transaction.note ?? '';
-    bool isExpense = transaction.isExpense;
-    String selectedCategory = transaction.category;
-    DateTime selectedDate = transaction.date;
+  void _toggleSelectionMode() {
+    setState(() {
+      _isSelectionMode = !_isSelectionMode;
+      if (!_isSelectionMode) {
+        _selectedTransactions.clear();
+      }
+    });
+  }
 
-    final result = await showDialog<bool>(
+  void _toggleTransactionSelection(int id) {
+    setState(() {
+      if (_selectedTransactions.contains(id)) {
+        _selectedTransactions.remove(id);
+        if (_selectedTransactions.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedTransactions.add(id);
+      }
+    });
+  }
+
+  Future<void> _batchDeleteTransactions() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transactions'),
+        content: Text(
+          'Are you sure you want to delete ${_selectedTransactions.length} transaction${_selectedTransactions.length > 1 ? 's' : ''}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      for (var id in _selectedTransactions) {
+        await DatabaseHelper.instance.deleteTransaction(id);
+      }
+      _loadTransactions();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${_selectedTransactions.length} transaction${_selectedTransactions.length > 1 ? 's' : ''} deleted successfully',
+            ),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _batchEditTransactions() async {
+    final amountController = TextEditingController();
+    String? selectedCategory;
+    bool? isExpense;
+    DateTime? selectedDate;
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          title: const Text('Edit Transaction'),
+          title: const Text('Edit Transactions'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextFormField(
-                  controller: _editAmountController,
-                  keyboardType: TextInputType.number,
+                TextField(
+                  controller: amountController,
                   decoration: const InputDecoration(
-                    labelText: 'Amount',
+                    labelText: 'New Amount (Optional)',
                     border: OutlineInputBorder(),
                   ),
+                  keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                SegmentedButton<bool>(
+                DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'New Category (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: [
+                    ...Constants.expenseCategories.map(
+                      (category) => DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      ),
+                    ),
+                    ...Constants.incomeCategories.map(
+                      (category) => DropdownMenuItem(
+                        value: category,
+                        child: Text(category),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    selectedCategory = value;
+                  },
+                ),
+                const SizedBox(height: 16),
+                SegmentedButton<bool?>(
                   segments: const [
                     ButtonSegment(
                       value: true,
@@ -71,50 +160,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ],
                   selected: {isExpense},
-                  onSelectionChanged: (Set<bool> newSelection) {
+                  onSelectionChanged: (Set<bool?> newSelection) {
                     setState(() {
                       isExpense = newSelection.first;
-                      selectedCategory = isExpense
-                          ? Constants.expenseCategories.first
-                          : Constants.incomeCategories.first;
                     });
                   },
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
+                ListTile(
+                  title: const Text('New Date (Optional)'),
+                  subtitle: Text(
+                    selectedDate != null
+                        ? DateFormat.yMMMd().format(selectedDate!)
+                        : 'Select a date',
                   ),
-                  items: (isExpense
-                          ? Constants.expenseCategories
-                          : Constants.incomeCategories)
-                      .map((category) => DropdownMenuItem(
-                            value: category,
-                            child: Row(
-                              children: [
-                                Icon(Constants.categoryIcons[category]),
-                                const SizedBox(width: 8),
-                                Text(category),
-                              ],
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: (String? value) {
-                    if (value != null) {
-                      setState(() {
-                        selectedCategory = value;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                InkWell(
+                  trailing: const Icon(Icons.calendar_today),
                   onTap: () async {
                     final DateTime? picked = await showDatePicker(
                       context: context,
-                      initialDate: selectedDate,
+                      initialDate: selectedDate ?? DateTime.now(),
                       firstDate: DateTime(2000),
                       lastDate: DateTime.now(),
                     );
@@ -124,61 +188,61 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       });
                     }
                   },
-                  child: InputDecorator(
-                    decoration: const InputDecoration(
-                      labelText: 'Date',
-                      border: OutlineInputBorder(),
-                      suffixIcon: Icon(Icons.calendar_today),
-                    ),
-                    child: Text(
-                      DateFormat.yMMMd().format(selectedDate),
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _editNoteController,
-                  decoration: const InputDecoration(
-                    labelText: 'Note (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
                 ),
               ],
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(context),
               child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () {
-                if (_editAmountController.text.isNotEmpty &&
-                    double.tryParse(_editAmountController.text) != null) {
-                  Navigator.pop(context, true);
-                }
+                Navigator.pop(context, {
+                  'amount': amountController.text.isNotEmpty
+                      ? double.parse(amountController.text)
+                      : null,
+                  'category': selectedCategory,
+                  'isExpense': isExpense,
+                  'date': selectedDate,
+                });
               },
-              child: const Text('Save'),
+              child: const Text('Apply'),
             ),
           ],
         ),
       ),
     );
 
-    if (result == true) {
-      final updatedTransaction = Transaction(
-        id: transaction.id,
-        amount: double.parse(_editAmountController.text),
-        isExpense: isExpense,
-        date: selectedDate,
-        category: selectedCategory,
-        note:
-            _editNoteController.text.isEmpty ? null : _editNoteController.text,
-      );
-
-      await DatabaseHelper.instance.updateTransaction(updatedTransaction);
+    if (result != null) {
+      for (var id in _selectedTransactions) {
+        final transaction = _transactions.firstWhere((t) => t.id == id);
+        final updatedTransaction = Transaction(
+          id: transaction.id,
+          amount: result['amount'] ?? transaction.amount,
+          category: result['category'] ?? transaction.category,
+          note: transaction.note,
+          date: result['date'] ?? transaction.date,
+          isExpense: result['isExpense'] ?? transaction.isExpense,
+          isRecurring: transaction.isRecurring,
+          frequency: transaction.frequency,
+        );
+        await DatabaseHelper.instance.updateTransaction(updatedTransaction);
+      }
+      await DatabaseHelper.instance.checkAndUpdateBudgets();
       _loadTransactions();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${_selectedTransactions.length} transaction${_selectedTransactions.length > 1 ? 's' : ''} updated successfully',
+            ),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
     }
   }
 
@@ -208,6 +272,30 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transaction History'),
+        actions: [
+          if (_isSelectionMode) ...[
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed:
+                  _selectedTransactions.isEmpty ? null : _batchEditTransactions,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _selectedTransactions.isEmpty
+                  ? null
+                  : _batchDeleteTransactions,
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _isSelectionMode = false;
+                  _selectedTransactions.clear();
+                });
+              },
+            ),
+          ],
+        ],
       ),
       body: Column(
         children: [
@@ -374,56 +462,228 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             );
           },
-          child: Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              leading: CircleAvatar(
-                backgroundColor: transaction.isExpense
-                    ? Colors.red.withOpacity(0.1)
-                    : Colors.green.withOpacity(0.1),
-                child: Icon(
-                  transaction.isExpense ? Icons.remove : Icons.add,
-                  color: transaction.isExpense ? Colors.red : Colors.green,
+          child: GestureDetector(
+            onLongPress: () {
+              if (!_isSelectionMode) {
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedTransactions.add(transaction.id!);
+                });
+              }
+            },
+            child: Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: ListTile(
+                leading: _isSelectionMode
+                    ? Checkbox(
+                        value: _selectedTransactions.contains(transaction.id),
+                        onChanged: (value) {
+                          _toggleTransactionSelection(transaction.id!);
+                        },
+                      )
+                    : Icon(
+                        Constants.categoryIcons[transaction.category],
+                        color:
+                            transaction.isExpense ? Colors.red : Colors.green,
+                      ),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        transaction.category,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Text(
+                      NumberFormat.currency(symbol: '\$')
+                          .format(transaction.amount),
+                      style: TextStyle(
+                        color:
+                            transaction.isExpense ? Colors.red : Colors.green,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      transaction.category,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (transaction.note != null &&
+                        transaction.note!.isNotEmpty)
+                      Text(transaction.note!),
+                    Text(
+                      DateFormat.yMMMd().format(transaction.date),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
-                  ),
-                  Text(
-                    NumberFormat.currency(symbol: '\$')
-                        .format(transaction.amount),
-                    style: TextStyle(
-                      color: transaction.isExpense ? Colors.red : Colors.green,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (transaction.note != null && transaction.note!.isNotEmpty)
-                    Text(transaction.note!),
-                  Text(
-                    DateFormat.yMMMd().format(transaction.date),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () => _editTransaction(transaction),
+                  ],
+                ),
+                trailing: _isSelectionMode
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _editTransaction(transaction),
+                      ),
               ),
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _editTransaction(Transaction transaction) async {
+    _editAmountController.text = transaction.amount.toString();
+    _editNoteController.text = transaction.note ?? '';
+    bool isExpense = transaction.isExpense;
+    String selectedCategory = transaction.category;
+    DateTime selectedDate = transaction.date;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Transaction'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _editAmountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: true,
+                      label: Text('Expense'),
+                      icon: Icon(Icons.remove),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Income'),
+                      icon: Icon(Icons.add),
+                    ),
+                  ],
+                  selected: {isExpense},
+                  onSelectionChanged: (Set<bool> newSelection) {
+                    setState(() {
+                      isExpense = newSelection.first;
+                      selectedCategory = isExpense
+                          ? Constants.expenseCategories.first
+                          : Constants.incomeCategories.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: (isExpense
+                          ? Constants.expenseCategories
+                          : Constants.incomeCategories)
+                      .map(
+                        (category) => DropdownMenuItem(
+                          value: category,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Constants.categoryIcons[category],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(category),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (String? value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedCategory = value;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        selectedDate = picked;
+                      });
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Date',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      DateFormat.yMMMd().format(selectedDate),
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _editNoteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Note (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_editAmountController.text.isNotEmpty &&
+                    double.tryParse(_editAmountController.text) != null) {
+                  Navigator.pop(context, true);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      final updatedTransaction = Transaction(
+        id: transaction.id,
+        amount: double.parse(_editAmountController.text),
+        isExpense: isExpense,
+        date: selectedDate,
+        category: selectedCategory,
+        note:
+            _editNoteController.text.isEmpty ? null : _editNoteController.text,
+      );
+
+      await DatabaseHelper.instance.updateTransaction(updatedTransaction);
+      await DatabaseHelper.instance.checkAndUpdateBudgets();
+      _loadTransactions();
+    }
   }
 
   @override

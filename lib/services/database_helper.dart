@@ -19,21 +19,15 @@ class DatabaseHelper {
     final dbPath = await sqflite.getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    // Delete the existing database file if it exists
-    await sqflite.deleteDatabase(path);
-
     return await sqflite.openDatabase(
       path,
       version: 1,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _createDB(sqflite.Database db, int version) async {
-    // Drop existing tables if they exist
-    await db.execute('DROP TABLE IF EXISTS transactions');
-    await db.execute('DROP TABLE IF EXISTS budgets');
-
     // Create transactions table with all required columns
     await db.execute('''
       CREATE TABLE transactions (
@@ -61,6 +55,15 @@ class DatabaseHelper {
         hasSurpassed INTEGER NOT NULL DEFAULT 0
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(
+      sqflite.Database db, int oldVersion, int newVersion) async {
+    // Handle database upgrades here if needed in the future
+    if (oldVersion < 2) {
+      // Example of how to add a new column in a future version
+      // await db.execute('ALTER TABLE transactions ADD COLUMN new_column TEXT');
+    }
   }
 
   // Transaction methods
@@ -94,9 +97,9 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
-  Future<void> updateTransaction(Transaction transaction) async {
+  Future<int> updateTransaction(Transaction transaction) async {
     final db = await instance.database;
-    await db.update(
+    return await db.update(
       'transactions',
       transaction.toMap(),
       where: 'id = ?',
@@ -104,9 +107,18 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> updateTransactionCategory(int id, String newCategory) async {
+  Future<int> deleteTransaction(int id) async {
     final db = await instance.database;
-    await db.update(
+    return await db.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<int> updateTransactionCategory(int id, String newCategory) async {
+    final db = await instance.database;
+    return await db.update(
       'transactions',
       {'category': newCategory},
       where: 'id = ?',
@@ -114,14 +126,15 @@ class DatabaseHelper {
     );
   }
 
-  Future<void> deleteTransaction(int id) async {
+  Future<List<Transaction>> getTransactionsByDateRange(
+      DateTime start, DateTime end) async {
     final db = await instance.database;
-    // Delete the transaction and all its future occurrences
-    await db.delete(
+    final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
-      where: 'id = ? OR originalTransactionId = ?',
-      whereArgs: [id, id],
+      where: 'date BETWEEN ? AND ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
     );
+    return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
   // Budget methods
@@ -163,6 +176,55 @@ class DatabaseHelper {
       where: 'id = ?',
       whereArgs: [id],
     );
+  }
+
+  Future<void> checkAndUpdateBudgets() async {
+    final db = await instance.database;
+    final transactions = await getTransactions();
+    final budgets = await getBudgets();
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+
+    // Calculate spending by category
+    final Map<String, double> categorySpending = {};
+    for (var transaction in transactions) {
+      if (transaction.isExpense &&
+          transaction.date
+              .isAfter(startOfMonth.subtract(const Duration(days: 1))) &&
+          transaction.date.isBefore(endOfMonth.add(const Duration(days: 1)))) {
+        categorySpending[transaction.category] =
+            (categorySpending[transaction.category] ?? 0) + transaction.amount;
+      }
+    }
+
+    // Check each budget
+    for (var budget in budgets) {
+      if (budget.startDate.isBefore(endOfMonth) &&
+          budget.endDate.isAfter(startOfMonth)) {
+        double spent = 0;
+        if (budget.category == null) {
+          // Overall budget
+          spent = categorySpending.values
+              .fold<double>(0.0, (sum, amount) => sum + (amount as double));
+        } else {
+          // Category-specific budget
+          spent = categorySpending[budget.category!] ?? 0;
+        }
+
+        // Update budget status
+        if (spent > budget.amount && !budget.hasSurpassed) {
+          await markBudgetAsSurpassed(budget.id!);
+        } else if (spent <= budget.amount && budget.hasSurpassed) {
+          await db.update(
+            'budgets',
+            {'hasSurpassed': 0},
+            where: 'id = ?',
+            whereArgs: [budget.id],
+          );
+        }
+      }
+    }
   }
 
   Future<void> close() async {
