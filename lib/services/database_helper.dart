@@ -353,4 +353,25 @@ class DatabaseHelper {
 
     return spending;
   }
+
+  Future<List<Transaction>> getAllTransactions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      orderBy: 'date DESC',
+    );
+
+    return List.generate(maps.length, (i) {
+      return Transaction(
+        id: maps[i]['id'],
+        amount: maps[i]['amount'],
+        category: maps[i]['category'],
+        note: maps[i]['note'],
+        date: DateTime.parse(maps[i]['date']),
+        isExpense: maps[i]['isExpense'] == 1,
+        isRecurring: maps[i]['isRecurring'] == 1 ? 1 : 0,
+        frequency: maps[i]['frequency'],
+      );
+    });
+  }
 } 

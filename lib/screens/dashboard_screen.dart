@@ -7,6 +7,11 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'category_management_screen.dart';
 import '../widgets/month_selector.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_selector/file_selector.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -581,7 +586,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.category),
+            tooltip: 'Manage Categories',
             onPressed: _navigateToCategoryManagement,
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_downward),
+            tooltip: 'Import from Excel',
+            onPressed: _importFromExcel,
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_upward),
+            tooltip: 'Export to Excel',
+            onPressed: _exportToExcel,
           ),
         ],
       ),
@@ -609,6 +625,286 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _exportToExcel() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Get all transactions and budgets
+      final transactions = await DatabaseHelper.instance.getAllTransactions();
+      final budgets = await DatabaseHelper.instance.getBudgets();
+
+      // Create Excel file
+      var excel = Excel.createExcel();
+
+      // Remove default sheet
+      excel.delete('Sheet1');
+
+      // Create named sheets
+      var transactionsSheet = excel['Transactions'];
+      var budgetsSheet = excel['Budgets'];
+
+      // Add headers for transactions
+      transactionsSheet.appendRow([
+        TextCellValue('Date'),
+        TextCellValue('Category'),
+        TextCellValue('Amount'),
+        TextCellValue('Type'),
+        TextCellValue('Note'),
+      ]);
+
+      // Add transaction data
+      for (var transaction in transactions) {
+        transactionsSheet.appendRow([
+          TextCellValue(DateFormat('yyyy-MM-dd').format(transaction.date)),
+          TextCellValue(transaction.category),
+          TextCellValue(transaction.amount.toString()),
+          TextCellValue(transaction.isExpense ? 'Expense' : 'Income'),
+          TextCellValue(transaction.note ?? ''),
+        ]);
+      }
+
+      // Add headers for budgets
+      budgetsSheet.appendRow([
+        TextCellValue('Category'),
+        TextCellValue('Amount'),
+        TextCellValue('Start Date'),
+        TextCellValue('End Date'),
+        TextCellValue('Has Surpassed'),
+      ]);
+
+      // Add budget data
+      for (var budget in budgets) {
+        budgetsSheet.appendRow([
+          TextCellValue(budget.category ?? 'Overall'),
+          TextCellValue(budget.amount.toString()),
+          TextCellValue(DateFormat('yyyy-MM-dd').format(budget.startDate)),
+          TextCellValue(DateFormat('yyyy-MM-dd').format(budget.endDate)),
+          TextCellValue(budget.hasSurpassed ? 'Yes' : 'No'),
+        ]);
+      }
+
+      // Auto-fit columns for transactions
+      transactionsSheet.setColumnWidth(0, 15.0); // Date
+      transactionsSheet.setColumnWidth(1, 20.0); // Category
+      transactionsSheet.setColumnWidth(2, 15.0); // Amount
+      transactionsSheet.setColumnWidth(3, 10.0); // Type
+      transactionsSheet.setColumnWidth(4, 30.0); // Note
+
+      // Auto-fit columns for budgets
+      budgetsSheet.setColumnWidth(0, 20.0); // Category
+      budgetsSheet.setColumnWidth(1, 15.0); // Amount
+      budgetsSheet.setColumnWidth(2, 15.0); // Start Date
+      budgetsSheet.setColumnWidth(3, 15.0); // End Date
+      budgetsSheet.setColumnWidth(4, 15.0); // Has Surpassed
+
+      // Get temporary directory
+      final directory = await getTemporaryDirectory();
+      final String fileName =
+          'expense_tracker_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+      final String filePath = '${directory.path}/$fileName';
+
+      // Save file
+      final fileBytes = excel.encode();
+      if (fileBytes != null) {
+        File(filePath)
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(fileBytes);
+
+        // Close loading dialog
+        Navigator.pop(context);
+
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Excel file exported successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+
+        // Share file
+        await Share.shareXFiles(
+          [XFile(filePath)],
+          text: 'My Expense Tracker Export',
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if it's showing
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _importFromExcel() async {
+    try {
+      // Pick Excel file
+      final typeGroup = XTypeGroup(
+        label: 'Excel',
+        extensions: ['xlsx'],
+      );
+
+      final file = await openFile(acceptedTypeGroups: [typeGroup]);
+      if (file == null) return;
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Read Excel file
+      final bytes = await file.readAsBytes();
+      var excel = Excel.decodeBytes(bytes);
+
+      // Remove default Sheet1 if it exists
+      if (excel.tables.containsKey('Sheet1')) {
+        excel.delete('Sheet1');
+      }
+
+      // Process transactions
+      if (!excel.tables.containsKey('Transactions')) {
+        throw Exception('Transactions sheet not found in the Excel file');
+      }
+      var transactionsSheet = excel.tables['Transactions']!;
+      List<Transaction> transactions = [];
+
+      // Skip header row and process transaction data
+      for (var i = 1; i < transactionsSheet.rows.length; i++) {
+        var row = transactionsSheet.rows[i];
+        if (row.isEmpty || row[0]?.value == null) continue;
+
+        try {
+          final date = DateFormat('yyyy-MM-dd').parse(row[0]!.value.toString());
+          final category = row[1]!.value.toString();
+          final amount = double.parse(row[2]!.value.toString());
+          final isExpense = row[3]!.value.toString().toLowerCase() == 'expense';
+          final note = row[4]?.value?.toString();
+
+          // Validate category
+          if (!Constants.expenseCategories.contains(category) &&
+              !Constants.incomeCategories.contains(category)) {
+            continue; // Skip invalid categories
+          }
+
+          transactions.add(Transaction(
+            amount: amount,
+            category: category,
+            note: note,
+            date: date,
+            isExpense: isExpense,
+            isRecurring: 0,
+          ));
+        } catch (e) {
+          // Skip invalid rows
+          continue;
+        }
+      }
+
+      // Process budgets
+      if (!excel.tables.containsKey('Budgets')) {
+        throw Exception('Budgets sheet not found in the Excel file');
+      }
+      var budgetsSheet = excel.tables['Budgets']!;
+      List<Budget> budgets = [];
+
+      // Skip header row and process budget data
+      for (var i = 1; i < budgetsSheet.rows.length; i++) {
+        var row = budgetsSheet.rows[i];
+        if (row.isEmpty || row[0]?.value == null) continue;
+
+        try {
+          final category = row[0]!.value.toString();
+          final amount = double.parse(row[1]!.value.toString());
+          final startDate =
+              DateFormat('yyyy-MM-dd').parse(row[2]!.value.toString());
+          final endDate =
+              DateFormat('yyyy-MM-dd').parse(row[3]!.value.toString());
+          final hasSurpassed = row[4]!.value.toString().toLowerCase() == 'yes';
+
+          // Validate category if not overall budget
+          if (category != 'Overall' &&
+              !Constants.expenseCategories.contains(category)) {
+            continue; // Skip invalid categories
+          }
+
+          budgets.add(Budget(
+            amount: amount,
+            category: category == 'Overall' ? null : category,
+            startDate: startDate,
+            endDate: endDate,
+            hasSurpassed: hasSurpassed,
+          ));
+        } catch (e) {
+          // Skip invalid rows
+          continue;
+        }
+      }
+
+      // Insert transactions and budgets
+      for (var transaction in transactions) {
+        await DatabaseHelper.instance.insertTransaction(transaction);
+      }
+
+      for (var budget in budgets) {
+        await DatabaseHelper.instance.insertBudget(budget);
+      }
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Successfully imported ${transactions.length} transactions and ${budgets.length} budgets'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+
+      // Refresh data
+      await _loadData();
+    } catch (e) {
+      // Close loading dialog if it's showing
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error importing data: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
