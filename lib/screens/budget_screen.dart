@@ -46,8 +46,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   double _getBudgetProgress(Budget budget) {
     if (budget.category == null) {
       // Overall budget
-      final totalSpent =
-          _categorySpending.values
+      final totalSpent = _categorySpending.values
           .fold<double>(0.0, (sum, amount) => sum + (amount as double));
       return totalSpent / budget.amount;
     }
@@ -279,7 +278,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Budget updated to \$ ${updatedBudget.amount.toStringAsFixed(2)}',
+              'Budget updated to \$${updatedBudget.amount.toStringAsFixed(2)}',
             ),
             backgroundColor: Colors.blue,
             duration: const Duration(seconds: 1),
@@ -327,11 +326,120 @@ class _BudgetScreenState extends State<BudgetScreen> {
     }
   }
 
+  Future<void> _showCopyBudgetDialog() async {
+    // Get all months that have budgets
+    final allBudgets = await DatabaseHelper.instance.getAllBudgets();
+    final monthsWithBudgets = <DateTime>{};
+
+    for (var budget in allBudgets) {
+      final month = DateTime(budget.startDate.year, budget.startDate.month, 1);
+      monthsWithBudgets.add(month);
+    }
+
+    if (!mounted) return;
+
+    // Show month selection dialog
+    final selectedMonth = await showDialog<DateTime>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Month'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: monthsWithBudgets.length,
+            itemBuilder: (context, index) {
+              final month = monthsWithBudgets.elementAt(index);
+              return ListTile(
+                title: Text(DateFormat.yMMMM().format(month)),
+                onTap: () => Navigator.pop(context, month),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (selectedMonth == null || !mounted) return;
+
+    // Get budgets for selected month
+    final startOfMonth = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    final endOfMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
+
+    final monthBudgets = allBudgets
+        .where((budget) =>
+            budget.startDate
+                .isBefore(endOfMonth.add(const Duration(days: 1))) &&
+            budget.endDate
+                .isAfter(startOfMonth.subtract(const Duration(days: 1))))
+        .toList();
+
+    if (!mounted) return;
+
+    // Show budget selection dialog
+    final selectedBudget = await showDialog<Budget>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+            'Select Budget from ${DateFormat.yMMMM().format(selectedMonth)}'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: monthBudgets.length,
+            itemBuilder: (context, index) {
+              final budget = monthBudgets[index];
+              return ListTile(
+                title: Text(budget.category ?? 'Overall Budget'),
+                subtitle: Text('\$${budget.amount.toStringAsFixed(2)}'),
+                onTap: () => Navigator.pop(context, budget),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (selectedBudget == null || !mounted) return;
+
+    // Create new budget for current month
+    final now = DateTime.now();
+    final startOfCurrentMonth = DateTime(now.year, now.month, 1);
+    final endOfCurrentMonth = DateTime(now.year, now.month + 1, 0);
+
+    final newBudget = Budget(
+      amount: selectedBudget.amount,
+      category: selectedBudget.category,
+      startDate: startOfCurrentMonth,
+      endDate: endOfCurrentMonth,
+      hasSurpassed: false,
+    );
+
+    await DatabaseHelper.instance.insertBudget(newBudget);
+    await _loadBudgets();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Budget copied successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Budget'),
+        title: const Text('Budgets'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.copy),
+            tooltip: 'Copy Budget from Previous Month',
+            onPressed: _showCopyBudgetDialog,
+          ),
+        ],
       ),
       body: Column(
         children: [

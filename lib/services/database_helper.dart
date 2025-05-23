@@ -327,15 +327,16 @@ class DatabaseHelper {
   }
 
   Future<List<Budget>> getBudgetsForMonth(DateTime month) async {
+    final db = await instance.database;
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0);
-    final db = await instance.database;
 
     final List<Map<String, dynamic>> maps = await db.query(
       'budgets',
       where: 'startDate <= ? AND endDate >= ?',
       whereArgs: [endOfMonth.toIso8601String(), startOfMonth.toIso8601String()],
     );
+
     return List.generate(maps.length, (i) => Budget.fromMap(maps[i]));
   }
 
@@ -373,5 +374,11 @@ class DatabaseHelper {
         frequency: maps[i]['frequency'],
       );
     });
+  }
+
+  Future<List<Budget>> getAllBudgets() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('budgets');
+    return List.generate(maps.length, (i) => Budget.fromMap(maps[i]));
   }
 } 
