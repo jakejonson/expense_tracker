@@ -536,6 +536,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildRecentTransactions() {
+    // Get only the last 5 transactions
+    final recentTransactions = _transactions.take(5).toList();
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -547,24 +550,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _transactions.length,
-              itemBuilder: (context, index) {
-                final transaction = _transactions[index];
-                return ListTile(
-                  title: Text(
-                    '${transaction.amount.toStringAsFixed(2)} - ${transaction.category}',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  subtitle: Text(
-                    DateFormat.yMMMd().format(transaction.date),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                );
-              },
-            ),
+            if (recentTransactions.isEmpty)
+              const Center(
+                child: Text('No recent transactions'),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: recentTransactions.length,
+                itemBuilder: (context, index) {
+                  final transaction = recentTransactions[index];
+                  return ListTile(
+                    title: Text(
+                      '${transaction.amount.toStringAsFixed(2)} - ${transaction.category}',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    subtitle: Text(
+                      DateFormat.yMMMd().format(transaction.date),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  );
+                },
+              ),
           ],
         ),
       ),
