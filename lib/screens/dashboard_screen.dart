@@ -6,6 +6,7 @@ import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'category_management_screen.dart';
+import '../widgets/month_selector.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -30,19 +31,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Budget> _budgets = [];
   double _totalBudget = 0;
   double _totalSpent = 0;
-  double _monthlySpending = 0;
-  double _monthlyBudget = 0;
+  DateTime _selectedMonth = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     _selectedCategory = Constants.expenseCategories.first;
-    _loadTransactions();
-    _loadBudgets();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadTransactions(),
+      _loadBudgets(),
+    ]);
   }
 
   Future<void> _loadTransactions() async {
-    final transactions = await DatabaseHelper.instance.getTransactions();
+    final transactions =
+        await DatabaseHelper.instance.getTransactionsForMonth(_selectedMonth);
     double income = 0;
     double expense = 0;
     final Map<String, double> spending = {};
@@ -67,7 +74,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadBudgets() async {
-    final budgets = await DatabaseHelper.instance.getBudgets();
+    final budgets =
+        await DatabaseHelper.instance.getBudgetsForMonth(_selectedMonth);
     setState(() {
       _budgets = budgets.where((budget) => budget.category == null).toList();
       _totalBudget = _budgets.fold(0, (sum, budget) => sum + budget.amount);
@@ -292,6 +300,279 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildTransactionForm() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Add Transaction',
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an amount';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Please enter a valid number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(
+                    value: true,
+                    label: Text('Expense'),
+                    icon: Icon(Icons.remove),
+                  ),
+                  ButtonSegment(
+                    value: false,
+                    label: Text('Income'),
+                    icon: Icon(Icons.add),
+                  ),
+                ],
+                selected: {_isExpense},
+                onSelectionChanged: (Set<bool> newSelection) {
+                  setState(() {
+                    _isExpense = newSelection.first;
+                    _selectedCategory = _isExpense
+                        ? Constants.expenseCategories.first
+                        : Constants.incomeCategories.first;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: _selectedCategory,
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(),
+                ),
+                items: (_isExpense
+                        ? Constants.expenseCategories
+                        : Constants.incomeCategories)
+                    .map((category) => DropdownMenuItem(
+                          value: category,
+                          child: Row(
+                            children: [
+                              Icon(Constants.categoryIcons[category]),
+                              const SizedBox(width: 8),
+                              Text(category),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (String? value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedCategory = value;
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Note (Optional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SwitchListTile(
+                title: const Text('Recurring Transaction'),
+                value: _isRecurring,
+                onChanged: (value) {
+                  setState(() {
+                    _isRecurring = value;
+                  });
+                },
+              ),
+              if (_isRecurring) ...[
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: _selectedFrequency,
+                  decoration: const InputDecoration(
+                    labelText: 'Frequency',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'weekly',
+                      child: Text('Weekly'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'biweekly',
+                      child: Text('Bi-weekly'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'monthly',
+                      child: Text('Monthly'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'yearly',
+                      child: Text('Yearly'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _selectedFrequency = value;
+                      });
+                    }
+                  },
+                ),
+              ],
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final DateTime? picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now(),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: ColorScheme.light(
+                            primary: Theme.of(context).primaryColor,
+                            onPrimary: Colors.white,
+                            surface: Theme.of(context).cardColor,
+                            onSurface:
+                                Theme.of(context).textTheme.bodyLarge?.color ??
+                                    Colors.black,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null && picked != _selectedDate) {
+                    setState(() {
+                      _selectedDate = picked;
+                    });
+                  }
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(
+                    DateFormat.yMMMd().format(_selectedDate),
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  if (_formKey.currentState!.validate()) {
+                    final transaction = Transaction(
+                      amount: double.parse(_amountController.text),
+                      category: _selectedCategory,
+                      note: _noteController.text.isEmpty
+                          ? null
+                          : _noteController.text,
+                      date: _selectedDate,
+                      isExpense: _isExpense,
+                      isRecurring: _isRecurring ? 1 : 0,
+                      frequency: _isRecurring ? _selectedFrequency : null,
+                    );
+
+                    await DatabaseHelper.instance
+                        .insertTransaction(transaction);
+                    _amountController.clear();
+                    _noteController.clear();
+                    await _loadData();
+
+                    // Check if any budgets are surpassed after adding the transaction
+                    if (_isExpense) {
+                      await _checkBudgetSurpassed(transaction.amount);
+                    }
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            '${_isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} added successfully',
+                          ),
+                          backgroundColor:
+                              _isExpense ? Colors.red : Colors.green,
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                  }
+                },
+                child: const Text('Save Transaction'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentTransactions() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Recent Transactions',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _transactions.length,
+              itemBuilder: (context, index) {
+                final transaction = _transactions[index];
+                return ListTile(
+                  title: Text(
+                    '${transaction.amount.toStringAsFixed(2)} - ${transaction.category}',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  subtitle: Text(
+                    DateFormat.yMMMd().format(transaction.date),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onMonthChanged(DateTime newMonth) {
+    setState(() {
+      _selectedMonth = newMonth;
+    });
+    _loadData();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -304,245 +585,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _loadTransactions,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildGaugeChart(),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Add Transaction',
-                        style: Theme.of(context).textTheme.titleMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Amount',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter an amount';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid number';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      SegmentedButton<bool>(
-                        segments: const [
-                          ButtonSegment(
-                            value: true,
-                            label: Text('Expense'),
-                            icon: Icon(Icons.remove),
-                          ),
-                          ButtonSegment(
-                            value: false,
-                            label: Text('Income'),
-                            icon: Icon(Icons.add),
-                          ),
-                        ],
-                        selected: {_isExpense},
-                        onSelectionChanged: (Set<bool> newSelection) {
-                          setState(() {
-                            _isExpense = newSelection.first;
-                            _selectedCategory = _isExpense
-                                ? Constants.expenseCategories.first
-                                : Constants.incomeCategories.first;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: (_isExpense
-                                ? Constants.expenseCategories
-                                : Constants.incomeCategories)
-                            .map((category) => DropdownMenuItem(
-                                  value: category,
-                                  child: Row(
-                                    children: [
-                                      Icon(Constants.categoryIcons[category]),
-                                      const SizedBox(width: 8),
-                                      Text(category),
-                                    ],
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: (String? value) {
-                          if (value != null) {
-                            setState(() {
-                              _selectedCategory = value;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _noteController,
-                        decoration: const InputDecoration(
-                          labelText: 'Note (Optional)',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SwitchListTile(
-                        title: const Text('Recurring Transaction'),
-                        value: _isRecurring,
-                        onChanged: (value) {
-                          setState(() {
-                            _isRecurring = value;
-                          });
-                        },
-                      ),
-                      if (_isRecurring) ...[
-                        const SizedBox(height: 16),
-                        DropdownButtonFormField<String>(
-                          value: _selectedFrequency,
-                          decoration: const InputDecoration(
-                            labelText: 'Frequency',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'weekly',
-                              child: Text('Weekly'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'biweekly',
-                              child: Text('Bi-weekly'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'monthly',
-                              child: Text('Monthly'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'yearly',
-                              child: Text('Yearly'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedFrequency = value;
-                              });
-                            }
-                          },
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      InkWell(
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: context,
-                            initialDate: _selectedDate,
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime.now(),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  colorScheme: ColorScheme.light(
-                                    primary: Theme.of(context).primaryColor,
-                                    onPrimary: Colors.white,
-                                    surface: Theme.of(context).cardColor,
-                                    onSurface: Theme.of(context)
-                                            .textTheme
-                                            .bodyLarge
-                                            ?.color ??
-                                        Colors.black,
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-                          if (picked != null && picked != _selectedDate) {
-                            setState(() {
-                              _selectedDate = picked;
-                            });
-                          }
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Date',
-                            border: OutlineInputBorder(),
-                            suffixIcon: Icon(Icons.calendar_today),
-                          ),
-                          child: Text(
-                            DateFormat.yMMMd().format(_selectedDate),
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            final transaction = Transaction(
-                              amount: double.parse(_amountController.text),
-                              category: _selectedCategory,
-                              note: _noteController.text.isEmpty
-                                  ? null
-                                  : _noteController.text,
-                              date: _selectedDate,
-                              isExpense: _isExpense,
-                              isRecurring: _isRecurring ? 1 : 0,
-                              frequency:
-                                  _isRecurring ? _selectedFrequency : null,
-                            );
-
-                            await DatabaseHelper.instance
-                                .insertTransaction(transaction);
-                            _amountController.clear();
-                            _noteController.clear();
-                            await _loadTransactions();
-
-                            // Check if any budgets are surpassed after adding the transaction
-                            if (_isExpense) {
-                              await _checkBudgetSurpassed(transaction.amount);
-                            }
-
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '${_isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} added successfully',
-                                  ),
-                                  backgroundColor:
-                                      _isExpense ? Colors.red : Colors.green,
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Save Transaction'),
-                      ),
-                    ],
-                  ),
-                ),
+      body: Column(
+        children: [
+          MonthSelector(
+            selectedMonth: _selectedMonth,
+            onMonthChanged: _onMonthChanged,
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildGaugeChart(),
+                  const SizedBox(height: 16),
+                  _buildTransactionForm(),
+                  const SizedBox(height: 16),
+                  _buildRecentTransactions(),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

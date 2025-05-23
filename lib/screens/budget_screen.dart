@@ -4,6 +4,7 @@ import '../models/budget.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 import 'budget_details_screen.dart';
+import '../widgets/month_selector.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -15,6 +16,7 @@ class BudgetScreen extends StatefulWidget {
 class _BudgetScreenState extends State<BudgetScreen> {
   List<Budget> _budgets = [];
   Map<String, double> _categorySpending = {};
+  DateTime _selectedMonth = DateTime.now();
 
   @override
   void initState() {
@@ -23,21 +25,22 @@ class _BudgetScreenState extends State<BudgetScreen> {
   }
 
   Future<void> _loadBudgets() async {
-    final budgets = await DatabaseHelper.instance.getBudgets();
-    final transactions = await DatabaseHelper.instance.getTransactions();
-    final Map<String, double> spending = {};
-
-    for (var transaction in transactions) {
-      if (transaction.isExpense) {
-        final category = transaction.category;
-        spending[category] = (spending[category] ?? 0) + transaction.amount;
-      }
-    }
+    final budgets =
+        await DatabaseHelper.instance.getBudgetsForMonth(_selectedMonth);
+    final spending = await DatabaseHelper.instance
+        .getCategorySpendingForMonth(_selectedMonth);
 
     setState(() {
       _budgets = budgets;
       _categorySpending = spending;
     });
+  }
+
+  void _onMonthChanged(DateTime newMonth) {
+    setState(() {
+      _selectedMonth = newMonth;
+    });
+    _loadBudgets();
   }
 
   double _getBudgetProgress(Budget budget) {
@@ -330,95 +333,110 @@ class _BudgetScreenState extends State<BudgetScreen> {
       appBar: AppBar(
         title: const Text('Budget'),
       ),
-      body: _budgets.isEmpty
-          ? const Center(
-              child: Text('No budgets set'),
-            )
-          : ListView.builder(
-              itemCount: _budgets.length,
-              itemBuilder: (context, index) {
-                final budget = _budgets[index];
-                final progress = _getBudgetProgress(budget);
-                final spent = budget.category == null
-                    ? _categorySpending.values.fold<double>(
-                        0.0, (sum, amount) => sum + (amount as double))
-                    : _categorySpending[budget.category!] ?? 0;
+      body: Column(
+        children: [
+          MonthSelector(
+            selectedMonth: _selectedMonth,
+            onMonthChanged: _onMonthChanged,
+          ),
+          Expanded(
+            child: _budgets.isEmpty
+                ? const Center(
+                    child: Text('No budgets set for this month'),
+                  )
+                : ListView.builder(
+                    itemCount: _budgets.length,
+                    itemBuilder: (context, index) {
+                      final budget = _budgets[index];
+                      final progress = _getBudgetProgress(budget);
+                      final spent = budget.category == null
+                          ? _categorySpending.values.fold<double>(
+                              0.0, (sum, amount) => sum + (amount as double))
+                          : _categorySpending[budget.category!] ?? 0;
 
-                return Card(
-                  margin: const EdgeInsets.all(8),
-                  child: InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              BudgetDetailsScreen(budget: budget),
+                      return Card(
+                        margin: const EdgeInsets.all(8),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    BudgetDetailsScreen(budget: budget),
+                              ),
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      budget.category ?? 'Overall Budget',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleLarge,
+                                    ),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit),
+                                          onPressed: () => _editBudget(budget),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete),
+                                          onPressed: () =>
+                                              _deleteBudget(budget),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                LinearProgressIndicator(
+                                  value: progress.clamp(0.0, 1.0),
+                                  backgroundColor: Colors.grey[200],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    progress > 1.0 ? Colors.red : Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Spent: \$${spent.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        color: progress > 1.0
+                                            ? Colors.red
+                                            : Colors.green,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Budget: \$${budget.amount.toStringAsFixed(2)}',
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${DateFormat.yMMMd().format(budget.startDate)} - ${DateFormat.yMMMd().format(budget.endDate)}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       );
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                budget.category ?? 'Overall Budget',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.edit),
-                                    onPressed: () => _editBudget(budget),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete),
-                                    onPressed: () => _deleteBudget(budget),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: progress.clamp(0.0, 1.0),
-                            backgroundColor: Colors.grey[200],
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              progress > 1.0 ? Colors.red : Colors.green,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Spent: \$${spent.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: progress > 1.0
-                                      ? Colors.red
-                                      : Colors.green,
-                                ),
-                              ),
-                              Text(
-                                'Budget: \$${budget.amount.toStringAsFixed(2)}',
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${DateFormat.yMMMd().format(budget.startDate)} - ${DateFormat.yMMMd().format(budget.endDate)}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
-                );
-              },
-            ),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddBudgetDialog,
         child: const Icon(Icons.add),

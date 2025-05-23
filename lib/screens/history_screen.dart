@@ -3,6 +3,7 @@ import '../models/transaction.dart';
 import '../services/database_helper.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
+import '../widgets/month_selector.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -20,6 +21,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _editNoteController = TextEditingController();
   bool _isSelectionMode = false;
   Set<int> _selectedTransactions = {};
+  bool _isLoading = true;
+  DateTime _selectedMonth = DateTime.now();
 
   @override
   void initState() {
@@ -28,11 +31,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _loadTransactions() async {
-    final transactions = await DatabaseHelper.instance.getTransactions();
+    setState(() => _isLoading = true);
+    final transactions =
+        await DatabaseHelper.instance.getTransactionsForMonth(_selectedMonth);
     setState(() {
       _transactions = transactions;
       _selectedTransactions.clear();
       _isSelectionMode = false;
+      _isLoading = false;
     });
   }
 
@@ -265,6 +271,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
+  void _onMonthChanged(DateTime newMonth) {
+    setState(() {
+      _selectedMonth = newMonth;
+    });
+    _loadTransactions();
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredTransactions = _getFilteredTransactions();
@@ -299,6 +312,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       body: Column(
         children: [
+          MonthSelector(
+            selectedMonth: _selectedMonth,
+            onMonthChanged: _onMonthChanged,
+          ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -390,11 +407,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
           Expanded(
-            child: filteredTransactions.isEmpty
-                ? const Center(
-                    child: Text('No transactions found'),
-                  )
-                : _buildTransactionList(),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredTransactions.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No transactions for ${DateFormat.yMMMM().format(_selectedMonth)}',
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      )
+                    : _buildTransactionList(),
           ),
         ],
       ),

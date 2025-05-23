@@ -319,4 +319,38 @@ class DatabaseHelper {
       await db.insert('transactions', nextTransaction);
     }
   }
+
+  Future<List<Transaction>> getTransactionsForMonth(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0);
+    return getTransactionsByDateRange(startOfMonth, endOfMonth);
+  }
+
+  Future<List<Budget>> getBudgetsForMonth(DateTime month) async {
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0);
+    final db = await instance.database;
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      'budgets',
+      where: 'startDate <= ? AND endDate >= ?',
+      whereArgs: [endOfMonth.toIso8601String(), startOfMonth.toIso8601String()],
+    );
+    return List.generate(maps.length, (i) => Budget.fromMap(maps[i]));
+  }
+
+  Future<Map<String, double>> getCategorySpendingForMonth(
+      DateTime month) async {
+    final transactions = await getTransactionsForMonth(month);
+    final Map<String, double> spending = {};
+
+    for (var transaction in transactions) {
+      if (transaction.isExpense) {
+        spending[transaction.category] =
+            (spending[transaction.category] ?? 0) + transaction.amount;
+      }
+    }
+
+    return spending;
+  }
 } 

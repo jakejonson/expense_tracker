@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/budget_screen.dart';
-import 'screens/report_screen.dart';
+import 'screens/reports_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 void main() {
@@ -149,7 +149,7 @@ class _MainScreenState extends State<MainScreen> {
     const DashboardScreen(),
     const HistoryScreen(),
     const BudgetScreen(),
-    const ReportScreen(),
+    const ReportsScreen(),
   ];
 
   @override
