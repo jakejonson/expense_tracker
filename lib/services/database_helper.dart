@@ -15,6 +15,11 @@ class DatabaseHelper {
     return _database!;
   }
 
+  // For testing purposes
+  void setTestDatabase(sqflite.Database db) {
+    _database = db;
+  }
+
   Future<sqflite.Database> _initDB(String filePath) async {
     final dbPath = await sqflite.getDatabasesPath();
     final path = join(dbPath, filePath);
@@ -68,7 +73,7 @@ class DatabaseHelper {
 
   // Transaction methods
   Future<int> insertTransaction(Transaction transaction) async {
-    final db = await instance.database;
+    final db = await database;
     final id = await db.insert('transactions', transaction.toMap());
 
     // If this is a recurring transaction, schedule the next occurrence
@@ -80,14 +85,14 @@ class DatabaseHelper {
   }
 
   Future<List<Transaction>> getTransactions() async {
-    final db = await instance.database;
+    final db = await database;
     final List<Map<String, dynamic>> maps =
         await db.query('transactions', orderBy: 'date DESC');
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
   Future<List<Transaction>> getTransactionsByCategory(String? category) async {
-    final db = await instance.database;
+    final db = await database;
     final List<Map<String, dynamic>> maps;
 
     if (category == null) {
@@ -124,7 +129,7 @@ class DatabaseHelper {
   }
 
   Future<int> updateTransaction(Transaction transaction) async {
-    final db = await instance.database;
+    final db = await database;
     final result = await db.update(
       'transactions',
       transaction.toMap(),
@@ -139,7 +144,7 @@ class DatabaseHelper {
   }
 
   Future<void> updateTransactions(List<Transaction> transactions) async {
-    final db = await instance.database;
+    final db = await database;
     await db.transaction((txn) async {
       for (var transaction in transactions) {
         await txn.update(
@@ -156,7 +161,7 @@ class DatabaseHelper {
   }
 
   Future<int> deleteTransaction(int id) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.delete(
       'transactions',
       where: 'id = ?',
@@ -165,7 +170,7 @@ class DatabaseHelper {
   }
 
   Future<int> updateTransactionCategory(int id, String newCategory) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.update(
       'transactions',
       {'category': newCategory},
@@ -176,7 +181,7 @@ class DatabaseHelper {
 
   Future<List<Transaction>> getTransactionsByDateRange(
       DateTime start, DateTime end) async {
-    final db = await instance.database;
+    final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
       where: 'date BETWEEN ? AND ?',
@@ -187,18 +192,18 @@ class DatabaseHelper {
 
   // Budget methods
   Future<int> insertBudget(Budget budget) async {
-    final db = await instance.database;
+    final db = await database;
     return await db.insert('budgets', budget.toMap());
   }
 
   Future<List<Budget>> getBudgets() async {
-    final db = await instance.database;
+    final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('budgets');
     return List.generate(maps.length, (i) => Budget.fromMap(maps[i]));
   }
 
   Future<void> updateBudget(Budget budget) async {
-    final db = await instance.database;
+    final db = await database;
     await db.update(
       'budgets',
       budget.toMap(),
@@ -208,7 +213,7 @@ class DatabaseHelper {
   }
 
   Future<void> deleteBudget(int id) async {
-    final db = await instance.database;
+    final db = await database;
     await db.delete(
       'budgets',
       where: 'id = ?',
@@ -217,7 +222,7 @@ class DatabaseHelper {
   }
 
   Future<void> markBudgetAsSurpassed(int id) async {
-    final db = await instance.database;
+    final db = await database;
     await db.update(
       'budgets',
       {'hasSurpassed': 1},
