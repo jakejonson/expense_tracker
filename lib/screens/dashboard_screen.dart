@@ -585,17 +585,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.category),
+            icon: const Icon(Icons.batch_prediction),
             tooltip: 'Manage Categories',
             onPressed: _navigateToCategoryManagement,
           ),
           IconButton(
-            icon: const Icon(Icons.arrow_downward),
+            icon: const Icon(Icons.download_rounded),
             tooltip: 'Import from Excel',
             onPressed: _importFromExcel,
           ),
           IconButton(
-            icon: const Icon(Icons.arrow_upward),
+            icon: const Icon(Icons.upload_file_rounded),
             tooltip: 'Export to Excel',
             onPressed: _exportToExcel,
           ),

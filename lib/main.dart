@@ -4,6 +4,7 @@ import 'screens/history_screen.dart';
 import 'screens/budget_screen.dart';
 import 'screens/reports_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'services/notification_service.dart';
 
 void main() {
   runApp(const MyApp());
@@ -144,6 +145,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  final _notificationService = NotificationService();
 
   final List<Widget> _screens = [
     const DashboardScreen(),
@@ -151,6 +153,22 @@ class _MainScreenState extends State<MainScreen> {
     const BudgetScreen(),
     const ReportsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _startNotificationListener();
+  }
+
+  void _startNotificationListener() {
+    _notificationService.startListening();
+  }
+
+  @override
+  void dispose() {
+    _notificationService.stopListening();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
