@@ -27,8 +27,13 @@ void main() {
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               amount REAL NOT NULL,
               category TEXT NOT NULL,
+              note TEXT,
               date TEXT NOT NULL,
-              isExpense INTEGER NOT NULL
+              isExpense INTEGER NOT NULL,
+              isRecurring INTEGER NOT NULL DEFAULT 0,
+              frequency TEXT,
+              originalTransactionId INTEGER,
+              nextOccurrence TEXT
             )
           ''');
 
@@ -38,7 +43,8 @@ void main() {
               amount REAL NOT NULL,
               category TEXT,
               startDate TEXT NOT NULL,
-              endDate TEXT NOT NULL
+              endDate TEXT NOT NULL,
+              hasSurpassed INTEGER NOT NULL DEFAULT 0
             )
           ''');
         },
