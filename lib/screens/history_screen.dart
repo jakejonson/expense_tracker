@@ -262,9 +262,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         return false;
       }
       if (_searchController.text.isNotEmpty) {
-        final searchTerm = _searchController.text.toLowerCase();
-        return transaction.category.toLowerCase().contains(searchTerm) ||
-            (transaction.note?.toLowerCase().contains(searchTerm) ?? false);
+        final searchTerm = _searchController.text.toLowerCase().trim();
+        if (transaction.note == null || transaction.note!.isEmpty) {
+          return false;
+        }
+        return transaction.note!.toLowerCase().contains(searchTerm);
       }
       return true;
     }).toList()
@@ -323,7 +325,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    labelText: 'Search',
+                    labelText: 'Search in notes',
+                    hintText: 'Enter text to search in transaction notes',
                     prefixIcon: const Icon(Icons.search),
                     border: const OutlineInputBorder(),
                     suffixIcon: _searchController.text.isNotEmpty
@@ -412,7 +415,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 : filteredTransactions.isEmpty
                     ? Center(
                         child: Text(
-                          'No transactions for ${DateFormat.yMMMM().format(_selectedMonth)}',
+                          _searchController.text.isNotEmpty
+                              ? 'No transactions found matching "${_searchController.text}"'
+                              : 'No transactions for ${DateFormat.yMMMM().format(_selectedMonth)}',
                           style: Theme.of(context).textTheme.bodyLarge,
                         ),
                       )
@@ -424,10 +429,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildTransactionList() {
+    final filteredTransactions = _getFilteredTransactions();
     return ListView.builder(
-      itemCount: _transactions.length,
+      itemCount: filteredTransactions.length,
       itemBuilder: (context, index) {
-        final transaction = _transactions[index];
+        final transaction = filteredTransactions[index];
         return Dismissible(
           key: Key(transaction.id.toString()),
           background: Container(
@@ -465,7 +471,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           onDismissed: (direction) async {
             await DatabaseHelper.instance.deleteTransaction(transaction.id!);
             setState(() {
-              _transactions.removeAt(index);
+              _transactions.remove(transaction);
             });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -477,7 +483,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     await DatabaseHelper.instance
                         .insertTransaction(transaction);
                     setState(() {
-                      _transactions.insert(index, transaction);
+                      _transactions.add(transaction);
                     });
                   },
                 ),
