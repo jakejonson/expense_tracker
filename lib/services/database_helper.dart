@@ -86,25 +86,73 @@ class DatabaseHelper {
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
-  Future<List<Transaction>> getTransactionsByCategory(String category) async {
+  Future<List<Transaction>> getTransactionsByCategory(String? category) async {
     final db = await instance.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'transactions',
-      where: 'category = ?',
-      whereArgs: [category],
-      orderBy: 'date DESC',
-    );
+    final List<Map<String, dynamic>> maps;
+
+    if (category == null) {
+      // For overall budget, get all expense transactions
+      maps = await db.query(
+        'transactions',
+        where: 'isExpense = ?',
+        whereArgs: [1],
+        orderBy: 'date DESC',
+      );
+    } else {
+      // For category-specific budget
+      maps = await db.query(
+        'transactions',
+        where: 'category = ? AND isExpense = ?',
+        whereArgs: [category, 1],
+        orderBy: 'date DESC',
+      );
+    }
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
+  }
+
+  Future<List<Transaction>> getTransactionsForBudget(Budget budget) async {
+    final transactions = await getTransactionsByCategory(budget.category);
+
+    // Filter transactions to only include those within the budget's date range
+    return transactions
+        .where((transaction) =>
+            transaction.date
+                .isAfter(budget.startDate.subtract(const Duration(days: 1))) &&
+            transaction.date
+                .isBefore(budget.endDate.add(const Duration(days: 1))))
+        .toList();
   }
 
   Future<int> updateTransaction(Transaction transaction) async {
     final db = await instance.database;
-    return await db.update(
+    final result = await db.update(
       'transactions',
       transaction.toMap(),
       where: 'id = ?',
       whereArgs: [transaction.id],
     );
+
+    // Recalculate budgets after transaction update
+    await checkAndUpdateBudgets();
+
+    return result;
+  }
+
+  Future<void> updateTransactions(List<Transaction> transactions) async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      for (var transaction in transactions) {
+        await txn.update(
+          'transactions',
+          transaction.toMap(),
+          where: 'id = ?',
+          whereArgs: [transaction.id],
+        );
+      }
+    });
+
+    // Recalculate budgets after bulk update
+    await checkAndUpdateBudgets();
   }
 
   Future<int> deleteTransaction(int id) async {
