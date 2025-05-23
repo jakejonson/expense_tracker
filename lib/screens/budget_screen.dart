@@ -55,10 +55,117 @@ class _BudgetScreenState extends State<BudgetScreen> {
     return spent / budget.amount;
   }
 
+  Future<DateTime?> _showMonthPicker(
+      BuildContext context, DateTime initialDate) async {
+    final now = DateTime.now();
+    final firstDate = DateTime(2000);
+    final lastDate = DateTime(now.year + 1, 12, 31);
+
+    return showDialog<DateTime>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Month'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Year selector
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left),
+                    onPressed: () {
+                      Navigator.pop(context,
+                          DateTime(initialDate.year - 1, initialDate.month, 1));
+                    },
+                  ),
+                  Text(
+                    initialDate.year.toString(),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right),
+                    onPressed: () {
+                      Navigator.pop(context,
+                          DateTime(initialDate.year + 1, initialDate.month, 1));
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // Month grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  childAspectRatio: 2,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemCount: 12,
+                itemBuilder: (context, index) {
+                  final month = index + 1;
+                  final isSelected = month == initialDate.month;
+                  final isEnabled = DateTime(initialDate.year, month, 1)
+                          .isAfter(
+                              firstDate.subtract(const Duration(days: 1))) &&
+                      DateTime(initialDate.year, month, 1)
+                          .isBefore(lastDate.add(const Duration(days: 1)));
+
+                  return InkWell(
+                    onTap: isEnabled
+                        ? () {
+                            Navigator.pop(
+                                context, DateTime(initialDate.year, month, 1));
+                          }
+                        : null,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color:
+                            isSelected ? Theme.of(context).primaryColor : null,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? Theme.of(context).primaryColor
+                              : Colors.grey,
+                        ),
+                      ),
+                      child: Center(
+                        child: Text(
+                          DateFormat('MMM').format(DateTime(2000, month, 1)),
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : isEnabled
+                                    ? null
+                                    : Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showAddBudgetDialog() async {
     final amountController = TextEditingController();
     String? selectedCategory;
-    DateTime selectedDate = DateTime.now();
+    DateTime selectedMonth = DateTime.now();
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -100,20 +207,15 @@ class _BudgetScreenState extends State<BudgetScreen> {
               ),
               const SizedBox(height: 16),
               ListTile(
-                title: const Text('Start Date'),
+                title: const Text('Month'),
                 subtitle: Text(
-                  DateFormat.yMMMd().format(selectedDate),
+                  DateFormat.yMMMM().format(selectedMonth),
                 ),
                 trailing: const Icon(Icons.calendar_today),
                 onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDate: selectedDate,
-                  );
+                  final picked = await _showMonthPicker(context, selectedMonth);
                   if (picked != null) {
-                    selectedDate = picked;
+                    selectedMonth = picked;
                   }
                 },
               ),
@@ -129,9 +231,9 @@ class _BudgetScreenState extends State<BudgetScreen> {
             onPressed: () {
               if (amountController.text.isNotEmpty) {
                 final startDate =
-                    DateTime(selectedDate.year, selectedDate.month, 1);
+                    DateTime(selectedMonth.year, selectedMonth.month, 1);
                 final endDate =
-                    DateTime(selectedDate.year, selectedDate.month + 1, 0);
+                    DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
                 Navigator.pop(context, {
                   'amount': double.parse(amountController.text),
                   'category': selectedCategory,
