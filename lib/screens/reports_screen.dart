@@ -13,12 +13,12 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  List<Transaction> _transactions = [];
-  bool _isLoading = true;
   DateTime _selectedMonth = DateTime.now();
+  List<Transaction> _transactions = [];
   Map<String, double> _categorySpending = {};
-  double _totalIncome = 0;
-  double _totalExpense = 0;
+  Map<String, double> _categoryIncome = {};
+  Map<int, double> _monthlySpending = {};
+  Map<int, double> _dailySpending = {};
 
   // Color scheme for categories
   final List<Color> _categoryColors = [
@@ -39,29 +39,55 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
     final transactions =
         await DatabaseHelper.instance.getTransactionsForMonth(_selectedMonth);
-    final spending = await DatabaseHelper.instance
-        .getCategorySpendingForMonth(_selectedMonth);
-    
-    double income = 0;
-    double expense = 0;
-    
+    final Map<String, double> spending = {};
+    final Map<String, double> income = {};
+    final Map<int, double> dailySpending = {};
+    final Map<int, double> monthlySpending = {};
+
+    // Get all transactions for the year to calculate monthly trends
+    final yearStart = DateTime(_selectedMonth.year, 1, 1);
+    final yearEnd = DateTime(_selectedMonth.year, 12, 31);
+    final yearlyTransactions = await DatabaseHelper.instance
+        .getTransactionsByDateRange(yearStart, yearEnd);
+
+    // Calculate monthly spending for the year
+    for (var i = 1; i <= 12; i++) {
+      monthlySpending[i] = 0;
+    }
+    for (var transaction in yearlyTransactions) {
+      if (transaction.isExpense) {
+        final month = transaction.date.month;
+        monthlySpending[month] =
+            (monthlySpending[month] ?? 0) + transaction.amount;
+      }
+    }
+
+    // Calculate daily spending for the selected month
+    final daysInMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    for (var i = 1; i <= daysInMonth; i++) {
+      dailySpending[i] = 0;
+    }
     for (var transaction in transactions) {
       if (transaction.isExpense) {
-        expense += transaction.amount;
+        final day = transaction.date.day;
+        dailySpending[day] = (dailySpending[day] ?? 0) + transaction.amount;
+        spending[transaction.category] =
+            (spending[transaction.category] ?? 0) + transaction.amount;
       } else {
-        income += transaction.amount;
+        income[transaction.category] =
+            (income[transaction.category] ?? 0) + transaction.amount;
       }
     }
 
     setState(() {
       _transactions = transactions;
       _categorySpending = spending;
-      _totalIncome = income;
-      _totalExpense = expense;
-      _isLoading = false;
+      _categoryIncome = income;
+      _monthlySpending = monthlySpending;
+      _dailySpending = dailySpending;
     });
   }
 
@@ -70,6 +96,163 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _selectedMonth = newMonth;
     });
     _loadData();
+  }
+
+  Widget _buildYearlyTrendChart() {
+    final monthlyData = _monthlySpending.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Yearly Spending Trend',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(show: true),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '\$${value.toInt()}',
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= 1 && value.toInt() <= 12) {
+                            return Text(
+                              DateFormat('MMM')
+                                  .format(DateTime(2000, value.toInt(), 1)),
+                              style: const TextStyle(fontSize: 10),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    rightTitles:
+                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles:
+                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: monthlyData.map((entry) {
+                        return FlSpot(entry.key.toDouble(), entry.value);
+                      }).toList(),
+                      isCurved: false,
+                      color: Theme.of(context).primaryColor,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Theme.of(context).primaryColor.withOpacity(0.2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthlyTrendChart() {
+    final dailyData = _dailySpending.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Monthly Spending Trend',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(show: true),
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '\$${value.toInt()}',
+                            style: const TextStyle(fontSize: 10),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= 1 && value.toInt() <= 31) {
+                            return Text(
+                              value.toInt().toString(),
+                              style: const TextStyle(fontSize: 10),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    rightTitles:
+                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles:
+                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  borderData: FlBorderData(show: true),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: dailyData.map((entry) {
+                        return FlSpot(entry.key.toDouble(), entry.value);
+                      }).toList(),
+                      isCurved: false,
+                      color: Theme.of(context).primaryColor,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Theme.of(context).primaryColor.withOpacity(0.2),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -86,21 +269,23 @@ class _ReportsScreenState extends State<ReportsScreen> {
             onMonthChanged: _onMonthChanged,
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSummaryCards(),
-                        const SizedBox(height: 16),
-                        _buildExpensePieChart(),
-                        const SizedBox(height: 16),
-                        _buildCategoryBreakdown(),
-                      ],
-                    ),
-                  ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildYearlyTrendChart(),
+                  const SizedBox(height: 16),
+                  _buildMonthlyTrendChart(),
+                  const SizedBox(height: 16),
+                  _buildSummaryCards(),
+                  const SizedBox(height: 16),
+                  _buildExpensePieChart(),
+                  const SizedBox(height: 16),
+                  _buildCategoryBreakdown(),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -108,6 +293,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildSummaryCards() {
+    final totalIncome = _categoryIncome.values.isEmpty
+        ? 0.0
+        : _categoryIncome.values.reduce((a, b) => a + b);
+    final totalExpense = _categorySpending.values.isEmpty
+        ? 0.0
+        : _categorySpending.values.reduce((a, b) => a + b);
+
     return Row(
       children: [
         Expanded(
@@ -122,7 +314,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${_totalIncome.toStringAsFixed(2)}',
+                    '\$${totalIncome.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Colors.green,
                         ),
@@ -144,7 +336,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${_totalExpense.toStringAsFixed(2)}',
+                    '\$${totalExpense.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           color: Colors.red,
                         ),
@@ -170,6 +362,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       );
     }
 
+    final totalExpense = _categorySpending.values.reduce((a, b) => a + b);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -186,7 +380,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               child: PieChart(
                 PieChartData(
                   sections: _categorySpending.entries.map((entry) {
-                    final percentage = (entry.value / _totalExpense) * 100;
+                    final percentage = (entry.value / totalExpense) * 100;
                     final colorIndex =
                         _categorySpending.keys.toList().indexOf(entry.key) %
                             _categoryColors.length;
@@ -216,6 +410,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return const SizedBox.shrink();
     }
 
+    final totalExpense = _categorySpending.values.reduce((a, b) => a + b);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -228,7 +424,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             const SizedBox(height: 16),
             ..._categorySpending.entries.map((entry) {
-              final percentage = (entry.value / _totalExpense) * 100;
+              final percentage = (entry.value / totalExpense) * 100;
               final colorIndex =
                   _categorySpending.keys.toList().indexOf(entry.key) %
                       _categoryColors.length;
