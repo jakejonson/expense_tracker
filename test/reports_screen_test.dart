@@ -27,8 +27,13 @@ void main() {
               id INTEGER PRIMARY KEY AUTOINCREMENT,
               amount REAL NOT NULL,
               category TEXT NOT NULL,
+              note TEXT,
               date TEXT NOT NULL,
-              isExpense INTEGER NOT NULL
+              isExpense INTEGER NOT NULL,
+              isRecurring INTEGER NOT NULL DEFAULT 0,
+              frequency TEXT,
+              originalTransactionId INTEGER,
+              nextOccurrence TEXT
             )
           ''');
 
@@ -38,7 +43,8 @@ void main() {
               amount REAL NOT NULL,
               category TEXT,
               startDate TEXT NOT NULL,
-              endDate TEXT NOT NULL
+              endDate TEXT NOT NULL,
+              hasSurpassed INTEGER NOT NULL DEFAULT 0
             )
           ''');
         },
@@ -54,18 +60,24 @@ void main() {
   });
 
   testWidgets('Reports screen shows empty state', (WidgetTester tester) async {
+    print('Starting empty state test');
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
+    // Use pump instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
+
     expect(find.text('Reports'), findsOneWidget);
     expect(find.text('No expense data for this month'), findsOneWidget);
+    print('Completed empty state test');
   });
 
   testWidgets('Reports screen shows transaction data',
       (WidgetTester tester) async {
+    print('Starting transaction data test');
     // Add test data
     final now = DateTime.now();
     await db.insertTransaction(models.Transaction(
@@ -88,13 +100,13 @@ void main() {
     ));
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
-    // Wait for data to load
-    await tester.pumpAndSettle();
+    // Use pump with timeout instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify summary cards
     expect(find.text('Income'), findsOneWidget);
@@ -107,9 +119,11 @@ void main() {
     expect(find.text('Transport'), findsOneWidget);
     expect(find.text('\$100.00'), findsOneWidget);
     expect(find.text('\$200.00'), findsOneWidget);
+    print('Completed transaction data test');
   });
 
   testWidgets('Reports screen shows budget data', (WidgetTester tester) async {
+    print('Starting budget data test');
     // Add test data
     final now = DateTime.now();
     await db.insertBudget(Budget(
@@ -126,22 +140,24 @@ void main() {
     ));
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
-    // Wait for data to load
-    await tester.pumpAndSettle();
+    // Use pump with timeout instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify budget data
     expect(find.text('Food'), findsOneWidget);
     expect(find.text('Transport'), findsOneWidget);
     expect(find.text('\$1,000.00'), findsOneWidget);
     expect(find.text('\$2,000.00'), findsOneWidget);
+    print('Completed budget data test');
   });
 
   testWidgets('Month selector changes data', (WidgetTester tester) async {
+    print('Starting month selector test');
     // Add test data for different months
     final now = DateTime.now();
     final nextMonth = now.add(const Duration(days: 32));
@@ -160,27 +176,29 @@ void main() {
     ));
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
-    // Wait for initial data to load
-    await tester.pumpAndSettle();
+    // Use pump with timeout instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify initial month data
     expect(find.text('\$100.00'), findsOneWidget);
 
     // Change month
     await tester.tap(find.byIcon(Icons.chevron_right));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify new month data
     expect(find.text('\$200.00'), findsOneWidget);
+    print('Completed month selector test');
   });
 
   testWidgets('Reports screen shows category breakdown',
       (WidgetTester tester) async {
+    print('Starting category breakdown test');
     // Add test data with multiple transactions in same category
     final now = DateTime.now();
     await db.insertTransaction(models.Transaction(
@@ -203,23 +221,25 @@ void main() {
     ));
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
-    // Wait for data to load
-    await tester.pumpAndSettle();
+    // Use pump with timeout instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify category totals
     expect(find.text('Food'), findsOneWidget);
     expect(find.text('Transport'), findsOneWidget);
     expect(find.text('\$250.00'), findsOneWidget); // Food total
     expect(find.text('\$200.00'), findsOneWidget); // Transport total
+    print('Completed category breakdown test');
   });
 
   testWidgets('Reports screen shows budget progress',
       (WidgetTester tester) async {
+    print('Starting budget progress test');
     // Add test data with budget and expenses
     final now = DateTime.now();
     await db.insertBudget(Budget(
@@ -236,36 +256,39 @@ void main() {
     ));
 
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
-    // Wait for data to load
-    await tester.pumpAndSettle();
+    // Use pump with timeout instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify budget progress
     expect(find.text('Food'), findsOneWidget);
     expect(find.text('\$1,000.00'), findsOneWidget); // Budget amount
     expect(find.text('\$600.00'), findsOneWidget); // Spent amount
     expect(find.text('60%'), findsOneWidget); // Progress percentage
+    print('Completed budget progress test');
   });
 
   testWidgets('Reports screen handles no data gracefully',
       (WidgetTester tester) async {
+    print('Starting no data test');
     await tester.pumpWidget(
-      MaterialApp(
+      const MaterialApp(
         home: ReportsScreen(),
       ),
     );
 
-    // Wait for data to load
-    await tester.pumpAndSettle();
+    // Use pump with timeout instead of pumpAndSettle
+    await tester.pump(const Duration(seconds: 1));
 
     // Verify empty state
     expect(find.text('No expense data for this month'), findsOneWidget);
     expect(find.text('Income'), findsOneWidget);
     expect(find.text('Expenses'), findsOneWidget);
     expect(find.text('\$0.00'), findsNWidgets(2)); // Zero amounts
+    print('Completed no data test');
   });
 }

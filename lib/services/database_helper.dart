@@ -259,7 +259,7 @@ class DatabaseHelper {
         if (budget.category == null) {
           // Overall budget
           spent = categorySpending.values
-              .fold<double>(0.0, (sum, amount) => sum + (amount as double));
+              .fold<double>(0.0, (sum, amount) => sum + (amount));
         } else {
           // Category-specific budget
           spent = categorySpending[budget.category!] ?? 0;

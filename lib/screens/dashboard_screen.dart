@@ -767,7 +767,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _importFromExcel() async {
     try {
       // Pick Excel file
-      final typeGroup = XTypeGroup(
+      const typeGroup = XTypeGroup(
         label: 'Excel',
         extensions: ['xlsx'],
       );

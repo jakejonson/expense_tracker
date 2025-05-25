@@ -20,7 +20,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final _editAmountController = TextEditingController();
   final _editNoteController = TextEditingController();
   bool _isSelectionMode = false;
-  Set<int> _selectedTransactions = {};
+  final Set<int> _selectedTransactions = {};
   bool _isLoading = true;
   DateTime _selectedMonth = DateTime.now();
 

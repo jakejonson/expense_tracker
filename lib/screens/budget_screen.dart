@@ -47,7 +47,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     if (budget.category == null) {
       // Overall budget
       final totalSpent = _categorySpending.values
-          .fold<double>(0.0, (sum, amount) => sum + (amount as double));
+          .fold<double>(0.0, (sum, amount) => sum + (amount));
       return totalSpent / budget.amount;
     }
     // Category-specific budget
@@ -561,7 +561,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
                       final progress = _getBudgetProgress(budget);
                       final spent = budget.category == null
                           ? _categorySpending.values.fold<double>(
-                              0.0, (sum, amount) => sum + (amount as double))
+                              0.0, (sum, amount) => sum + (amount))
                           : _categorySpending[budget.category!] ?? 0;
 
                       return Card(

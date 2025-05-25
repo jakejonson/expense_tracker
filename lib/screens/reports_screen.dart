@@ -117,7 +117,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               height: 200,
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: true),
+                  gridData: const FlGridData(show: true),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
@@ -147,9 +147,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     ),
                     rightTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                     topTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
                   lineBarsData: [
@@ -161,7 +163,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       color: Theme.of(context).primaryColor,
                       barWidth: 3,
                       isStrokeCapRound: true,
-                      dotData: FlDotData(show: true),
+                      dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
                         color: Theme.of(context).primaryColor.withOpacity(0.2),
@@ -196,7 +198,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
               height: 200,
               child: LineChart(
                 LineChartData(
-                  gridData: FlGridData(show: true),
+                  gridData: const FlGridData(show: true),
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
@@ -225,9 +227,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     ),
                     rightTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                     topTitles:
-                        AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                        const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
                   lineBarsData: [
@@ -239,7 +243,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       color: Theme.of(context).primaryColor,
                       barWidth: 3,
                       isStrokeCapRound: true,
-                      dotData: FlDotData(show: true),
+                      dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
                         color: Theme.of(context).primaryColor.withOpacity(0.2),
