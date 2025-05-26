@@ -14,11 +14,11 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   DateTime _selectedMonth = DateTime.now();
-  List<Transaction> _transactions = [];
   Map<String, double> _categorySpending = {};
   Map<String, double> _categoryIncome = {};
   Map<int, double> _monthlySpending = {};
   Map<int, double> _dailySpending = {};
+  List<Transaction> _transactions = [];
 
   // Color scheme for categories
   final List<Color> _categoryColors = [

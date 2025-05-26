@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:path/path.dart';
 import '../models/transaction.dart';
 import '../models/budget.dart';
+import '../models/category_mapping.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -60,6 +61,61 @@ class DatabaseHelper {
         hasSurpassed INTEGER NOT NULL DEFAULT 0
       )
     ''');
+
+    // Create category mappings table
+    await db.execute('''
+      CREATE TABLE category_mappings(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        keyword TEXT NOT NULL,
+        category TEXT NOT NULL,
+        UNIQUE(keyword)
+      )
+    ''');
+
+    // Insert default category mappings
+    await _insertDefaultMappings(db);
+  }
+
+  Future<void> _insertDefaultMappings(sqflite.Database db) async {
+    final defaultMappings = [
+      {'keyword': 'PAYROLL', 'category': 'Salary'},
+      {'keyword': 'HYDRO', 'category': 'Utilities'},
+      {'keyword': 'BILL', 'category': 'Utilities'},
+      {'keyword': 'UTILITY', 'category': 'Utilities'},
+      {'keyword': 'ELECTRIC', 'category': 'Utilities'},
+      {'keyword': 'ESSENCE', 'category': 'Car'},
+      {'keyword': 'GAS', 'category': 'Car'},
+      {'keyword': 'PETRO', 'category': 'Car'},
+      {'keyword': 'SHELL', 'category': 'Car'},
+      {'keyword': 'ADONIS', 'category': 'Groceries'},
+      {'keyword': 'MARCHE', 'category': 'Groceries'},
+      {'keyword': 'IGA', 'category': 'Groceries'},
+      {'keyword': 'METRO', 'category': 'Groceries'},
+      {'keyword': 'SUPER C', 'category': 'Groceries'},
+      {'keyword': 'E-TRANSFER', 'category': 'Other'},
+      {'keyword': 'TRANSFER', 'category': 'Other'},
+      {'keyword': 'RESTAURANT', 'category': 'Eating Out'},
+      {'keyword': 'CAFE', 'category': 'Eating Out'},
+      {'keyword': 'TIM HORTONS', 'category': 'Eating Out'},
+      {'keyword': 'MCDONALD', 'category': 'Eating Out'},
+      {'keyword': 'AMZN', 'category': 'Shopping'},
+      {'keyword': 'COSTCO', 'category': 'Shopping'},
+      {'keyword': 'CANADIAN TIRE', 'category': 'Shopping'},
+      {'keyword': 'NETFLIX', 'category': 'Entertainment'},
+      {'keyword': 'SPOTIFY', 'category': 'Entertainment'},
+      {'keyword': 'DISNEY', 'category': 'Entertainment'},
+      {'keyword': 'PRIME', 'category': 'Entertainment'},
+      {'keyword': 'GOUV', 'category': 'Tax Refund'},
+      {'keyword': 'GOVERNMENT', 'category': 'Tax Refund'},
+    ];
+
+    for (final mapping in defaultMappings) {
+      await db.insert(
+        'category_mappings',
+        mapping,
+        conflictAlgorithm: sqflite.ConflictAlgorithm.ignore,
+      );
+    }
   }
 
   Future<void> _onUpgrade(
@@ -385,5 +441,40 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('budgets');
     return List.generate(maps.length, (i) => Budget.fromMap(maps[i]));
+  }
+
+  // Category Mapping Methods
+  Future<List<CategoryMapping>> getCategoryMappings() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('category_mappings');
+    return List.generate(maps.length, (i) => CategoryMapping.fromMap(maps[i]));
+  }
+
+  Future<void> addCategoryMapping(CategoryMapping mapping) async {
+    final db = await database;
+    await db.insert(
+      'category_mappings',
+      mapping.toMap(),
+      conflictAlgorithm: sqflite.ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteCategoryMapping(String keyword) async {
+    final db = await database;
+    await db.delete(
+      'category_mappings',
+      where: 'keyword = ?',
+      whereArgs: [keyword],
+    );
+  }
+
+  Future<void> updateCategoryMapping(CategoryMapping mapping) async {
+    final db = await database;
+    await db.update(
+      'category_mappings',
+      mapping.toMap(),
+      where: 'keyword = ?',
+      whereArgs: [mapping.keyword],
+    );
   }
 } 

@@ -12,6 +12,10 @@ class Constants {
     'Utilities',
     'Healthcare',
     'Education',
+    'Tax',
+    'Pet',
+    'Saeid',
+    'Other',
   ];
 
   static List<String> incomeCategories = [
@@ -21,8 +25,7 @@ class Constants {
     'Other'
   ];
 
-  static Map<String, IconData> categoryIcons = {
-    // Expense icons
+  static Map<String, IconData> expenseCategoryIcons = {
     'Groceries': Icons.shopping_basket,
     'Rent': Icons.home,
     'Car': Icons.directions_car,
@@ -33,7 +36,14 @@ class Constants {
     'Utilities': Icons.power,
     'Healthcare': Icons.local_hospital,
     'Education': Icons.school,
-    // Income icons
+    'Pet': Icons.pets,
+    'Tax': Icons.receipt_long,
+    'Saeid': Icons.person,
+    'Travel': Icons.flight,
+    'Other': Icons.more_horiz,
+  };
+
+  static Map<String, IconData> incomeCategoryIcons = {
     'Salary': Icons.work,
     'Freelance': Icons.computer,
     'Tax Refund': Icons.receipt_long,
@@ -44,12 +54,12 @@ class Constants {
     if (isExpense) {
       if (!expenseCategories.contains(category)) {
         expenseCategories.add(category);
-        categoryIcons[category] = Icons.category;
+        expenseCategoryIcons[category] = Icons.category;
       }
     } else {
       if (!incomeCategories.contains(category)) {
         incomeCategories.add(category);
-        categoryIcons[category] = Icons.category;
+        incomeCategoryIcons[category] = Icons.category;
       }
     }
   }
@@ -60,7 +70,11 @@ class Constants {
     } else {
       incomeCategories.remove(category);
     }
-    categoryIcons.remove(category);
+    if (isExpense) {
+      expenseCategoryIcons.remove(category);
+    } else {
+      incomeCategoryIcons.remove(category);
+    }
   }
 
   static const List<Color> chartColors = [

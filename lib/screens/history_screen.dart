@@ -510,7 +510,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         },
                       )
                     : Icon(
-                        Constants.categoryIcons[transaction.category],
+                        transaction.isExpense
+                            ? Constants
+                                .expenseCategoryIcons[transaction.category]
+                            : Constants
+                                .incomeCategoryIcons[transaction.category],
                         color:
                             transaction.isExpense ? Colors.red : Colors.green,
                       ),
@@ -623,7 +627,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           child: Row(
                             children: [
                               Icon(
-                                Constants.categoryIcons[category],
+                                isExpense
+                                    ? Constants.expenseCategoryIcons[category]
+                                    : Constants.incomeCategoryIcons[category],
                               ),
                               const SizedBox(width: 8),
                               Text(category),

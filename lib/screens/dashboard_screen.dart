@@ -375,7 +375,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           value: category,
                           child: Row(
                             children: [
-                              Icon(Constants.categoryIcons[category]),
+                              Icon(Constants.expenseCategories
+                                      .contains(category)
+                                  ? Constants.expenseCategoryIcons[category]
+                                  : Constants.incomeCategoryIcons[category]),
                               const SizedBox(width: 8),
                               Text(category),
                             ],

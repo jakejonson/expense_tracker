@@ -176,7 +176,9 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                     ? _expenseCategories[index]
                     : _incomeCategories[index];
                 return ListTile(
-                  leading: Icon(Constants.categoryIcons[category]),
+                  leading: Icon(_isExpense
+                      ? Constants.expenseCategoryIcons[category]
+                      : Constants.incomeCategoryIcons[category]),
                   title: Text(category),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete),
