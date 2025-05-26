@@ -81,7 +81,8 @@ class RBCImportService {
         final note = _formatNote(description1, description2);
 
         // Guess category based on description
-        String category = await _guessCategory(description1, description2);
+        String category =
+            await _getCategoryForDescription(description1 + ' ' + description2);
 
         final transaction = Transaction(
           amount: amount.abs(),
@@ -180,86 +181,13 @@ class RBCImportService {
     return parts.join(' - ');
   }
 
-  Future<String> _guessCategory(
-      String description1, String description2) async {
-    final desc = (description1 + ' ' + description2).toUpperCase();
-
-    // Get all category mappings from database
+  Future<String> _getCategoryForDescription(String desc) async {
     final mappings = await _db.getCategoryMappings();
-
-    // Check each mapping
     for (final mapping in mappings) {
-      if (desc.contains(mapping.keyword)) {
+      if (desc.contains(mapping.description)) {
         return mapping.category;
       }
     }
-
-    // If no mapping found, try to guess based on common patterns
-    if (desc.contains('PAYROLL')) {
-      return 'Salary';
-    } else if (desc.contains('HYDRO') ||
-        desc.contains('BILL') ||
-        desc.contains('UTILITY') ||
-        desc.contains('ELECTRIC') ||
-        desc.contains('CARRY TELECOM') ||
-        desc.contains('MONTHLY FEE') ||
-        desc.contains('FIDO')) {
-      return 'Utilities';
-    } else if (desc.contains('ESSENCE') ||
-        desc.contains('GAS') ||
-        desc.contains('PETRO') ||
-        desc.contains('AGENCE DE MOBILITE') ||
-        desc.contains('SHELL')) {
-      return 'Car';
-    } else if (desc.contains('ADONIS') ||
-        desc.contains('MARCHE') ||
-        desc.contains('IGA') ||
-        desc.contains('METRO COTE NEIGES') ||
-        desc.contains('METRO ETS') ||
-        desc.contains('SUPER C') ||
-        desc.contains('EPICERIE') ||
-        desc.contains('WALMART')) {
-      return 'Groceries';
-    } else if (desc.contains('AFFIRM')) {
-      return 'Healthcare';
-    } else if (desc.contains('MONDOU') || desc.contains('PET')) {
-      return 'Pet';
-    } else if (desc.contains('WISE') ||
-        desc.contains('COP @') ||
-        desc.contains('USD @') ||
-        desc.contains('EUR @')) {
-      return 'Travel';
-    } else if (desc.contains('RESTAURANT') ||
-        desc.contains('CAFE') ||
-        desc.contains('RESTO') ||
-        desc.contains('TIM HORTONS') ||
-        desc.contains('McDonalds') ||
-        desc.contains('ROCKABERRY') ||
-        desc.contains('KEBAB') ||
-        desc.contains('ANTEP') ||
-        desc.contains('PUB') ||
-        desc.contains('BAR') ||
-        desc.contains('MCDONALD')) {
-      return 'Eating Out';
-    } else if (desc.contains('AMZN') ||
-        desc.contains('COSTCO WHOLESALE') ||
-        desc.contains('CANADIAN TIRE')) {
-      return 'Shopping';
-    } else if (desc.contains('Patreon') || desc.contains('NAMESILOLLC')) {
-      return 'Saeid';
-    } else if (desc.contains('NETFLIX') ||
-        desc.contains('SPOTIFY') ||
-        desc.contains('DISNEY') ||
-        desc.contains('PRIME') ||
-        desc.contains('CANADALAND') ||
-        desc.contains('GOOGLE')) {
-      return 'Entertainment';
-    } else if (desc.contains('WEALTHSIMPLE TAX')) {
-      return 'Tax';
-    } else if (desc.contains('GOUV') || desc.contains('GOVERNMENT')) {
-      return 'Tax Refund';
-    }
-
-    return 'Other';
+    return 'Uncategorized';
   }
 }

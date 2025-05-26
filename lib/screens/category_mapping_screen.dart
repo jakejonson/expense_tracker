@@ -47,38 +47,24 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
   }
 
   Future<void> _addMapping() async {
-    final keyword = _keywordController.text.trim().toUpperCase();
-    final category = _categoryController.text.trim();
-
-    if (keyword.isEmpty || category.isEmpty) {
-      setState(() {
-        _errorMessage = 'Please enter both keyword and category';
-      });
+    if (_keywordController.text.isEmpty || _categoryController.text.isEmpty) {
       return;
     }
 
-    try {
-      final mapping = CategoryMapping(keyword: keyword, category: category);
-      await _db.addCategoryMapping(mapping);
-      _keywordController.clear();
-      _categoryController.clear();
-      await _loadMappings();
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error adding mapping: ${e.toString()}';
-      });
-    }
+    final keyword = _keywordController.text;
+    final category = _categoryController.text;
+
+    final mapping = CategoryMapping(description: keyword, category: category);
+    await _db.addCategoryMapping(mapping);
+
+    _keywordController.clear();
+    _categoryController.clear();
+    _loadMappings();
   }
 
-  Future<void> _deleteMapping(String keyword) async {
-    try {
-      await _db.deleteCategoryMapping(keyword);
-      await _loadMappings();
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Error deleting mapping: ${e.toString()}';
-      });
-    }
+  Future<void> _deleteMapping(String description) async {
+    await _db.deleteCategoryMapping(description);
+    _loadMappings();
   }
 
   @override
@@ -87,66 +73,57 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
       appBar: AppBar(
         title: const Text('Category Mappings'),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
               children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      TextField(
-                        controller: _keywordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Keyword',
-                          hintText: 'Enter keyword to match',
-                          border: OutlineInputBorder(),
-                        ),
-                        textCapitalization: TextCapitalization.characters,
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _categoryController,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          hintText: 'Enter category name',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _addMapping,
-                        child: const Text('Add Mapping'),
-                      ),
-                      if (_errorMessage != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 16.0),
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: Colors.red),
-                          ),
-                        ),
-                    ],
+                Expanded(
+                  child: TextField(
+                    controller: _keywordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: _mappings.length,
-                    itemBuilder: (context, index) {
-                      final mapping = _mappings[index];
-                      return ListTile(
-                        title: Text(mapping.keyword),
-                        subtitle: Text(mapping.category),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _deleteMapping(mapping.keyword),
-                        ),
-                      );
-                    },
+                  child: TextField(
+                    controller: _categoryController,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton(
+                  onPressed: _addMapping,
+                  child: const Text('Add'),
                 ),
               ],
             ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _mappings.length,
+              itemBuilder: (context, index) {
+                final mapping = _mappings[index];
+                return ListTile(
+                  title: Text(mapping.description),
+                  subtitle: Text(mapping.category),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () => _deleteMapping(mapping.description),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

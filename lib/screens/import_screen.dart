@@ -9,7 +9,9 @@ import 'package:expense_tracker/models/transaction.dart';
 import 'package:expense_tracker/screens/category_mapping_screen.dart';
 
 class ImportScreen extends StatefulWidget {
-  const ImportScreen({super.key});
+  final String? initialSource;
+
+  const ImportScreen({super.key, this.initialSource});
 
   @override
   State<ImportScreen> createState() => _ImportScreenState();
@@ -24,6 +26,12 @@ class _ImportScreenState extends State<ImportScreen> {
   int _importedCount = 0;
   final RBCImportService _rbcImportService =
       RBCImportService(DatabaseHelper.instance);
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSource = widget.initialSource;
+  }
 
   Future<void> _importFile() async {
     if (_selectedSource == null) {

@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_selector/file_selector.dart';
+import 'import_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -768,154 +769,48 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _importFromExcel() async {
-    try {
-      // Pick Excel file
-      const typeGroup = XTypeGroup(
-        label: 'Excel',
-        extensions: ['xlsx'],
-      );
-
-      final file = await openFile(acceptedTypeGroups: [typeGroup]);
-      if (file == null) return;
-
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-
-      // Read Excel file
-      final bytes = await file.readAsBytes();
-      var excel = Excel.decodeBytes(bytes);
-
-      // Remove default Sheet1 if it exists
-      if (excel.tables.containsKey('Sheet1')) {
-        excel.delete('Sheet1');
-      }
-
-      // Process transactions
-      if (!excel.tables.containsKey('Transactions')) {
-        throw Exception('Transactions sheet not found in the Excel file');
-      }
-      var transactionsSheet = excel.tables['Transactions']!;
-      List<Transaction> transactions = [];
-
-      // Skip header row and process transaction data
-      for (var i = 1; i < transactionsSheet.rows.length; i++) {
-        var row = transactionsSheet.rows[i];
-        if (row.isEmpty || row[0]?.value == null) continue;
-
-        try {
-          final date = DateFormat('yyyy-MM-dd').parse(row[0]!.value.toString());
-          final category = row[1]!.value.toString();
-          final amount = double.parse(row[2]!.value.toString());
-          final isExpense = row[3]!.value.toString().toLowerCase() == 'expense';
-          final note = row[4]?.value?.toString();
-
-          // Validate category
-          if (!Constants.expenseCategories.contains(category) &&
-              !Constants.incomeCategories.contains(category)) {
-            continue; // Skip invalid categories
-          }
-
-          transactions.add(Transaction(
-            amount: amount,
-            category: category,
-            note: note,
-            date: date,
-            isExpense: isExpense,
-            isRecurring: 0,
-          ));
-        } catch (e) {
-          // Skip invalid rows
-          continue;
-        }
-      }
-
-      // Process budgets
-      if (!excel.tables.containsKey('Budgets')) {
-        throw Exception('Budgets sheet not found in the Excel file');
-      }
-      var budgetsSheet = excel.tables['Budgets']!;
-      List<Budget> budgets = [];
-
-      // Skip header row and process budget data
-      for (var i = 1; i < budgetsSheet.rows.length; i++) {
-        var row = budgetsSheet.rows[i];
-        if (row.isEmpty || row[0]?.value == null) continue;
-
-        try {
-          final category = row[0]!.value.toString();
-          final amount = double.parse(row[1]!.value.toString());
-          final startDate =
-              DateFormat('yyyy-MM-dd').parse(row[2]!.value.toString());
-          final endDate =
-              DateFormat('yyyy-MM-dd').parse(row[3]!.value.toString());
-          final hasSurpassed = row[4]!.value.toString().toLowerCase() == 'yes';
-
-          // Validate category if not overall budget
-          if (category != 'Overall' &&
-              !Constants.expenseCategories.contains(category)) {
-            continue; // Skip invalid categories
-          }
-
-          budgets.add(Budget(
-            amount: amount,
-            category: category == 'Overall' ? null : category,
-            startDate: startDate,
-            endDate: endDate,
-            hasSurpassed: hasSurpassed,
-          ));
-        } catch (e) {
-          // Skip invalid rows
-          continue;
-        }
-      }
-
-      // Insert transactions and budgets
-      for (var transaction in transactions) {
-        await DatabaseHelper.instance.insertTransaction(transaction);
-      }
-
-      for (var budget in budgets) {
-        await DatabaseHelper.instance.insertBudget(budget);
-      }
-
-      // Close loading dialog
-      Navigator.pop(context);
-
-      // Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Successfully imported ${transactions.length} transactions and ${budgets.length} budgets'),
-            backgroundColor: Colors.green,
+    // Show dialog to select import format
+    final selectedFormat = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Import Format'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.account_balance),
+                title: const Text('RBC Bank'),
+                subtitle: const Text('Import from RBC bank statement'),
+                onTap: () => Navigator.pop(context, 'RBC'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.table_chart),
+                title: const Text('Expense Tracker'),
+                subtitle: const Text('Import from Expense Tracker format'),
+                onTap: () => Navigator.pop(context, 'ExpenseTracker'),
+              ),
+            ],
           ),
         );
-      }
+      },
+    );
 
-      // Refresh data
-      await _loadData();
-    } catch (e) {
-      // Close loading dialog if it's showing
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
+    if (selectedFormat == null) return;
 
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error importing data: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    // Navigate to import screen with selected format
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ImportScreen(
+            initialSource:
+                selectedFormat == 'RBC' ? 'RBC Bank' : 'Expense Tracker'),
+      ),
+    );
+
+    // Refresh data after import
+    await _loadData();
   }
 
   @override

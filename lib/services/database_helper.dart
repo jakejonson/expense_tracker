@@ -66,9 +66,9 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE category_mappings(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        keyword TEXT NOT NULL,
+        description TEXT NOT NULL,
         category TEXT NOT NULL,
-        UNIQUE(keyword)
+        UNIQUE(description)
       )
     ''');
 
@@ -78,35 +78,35 @@ class DatabaseHelper {
 
   Future<void> _insertDefaultMappings(sqflite.Database db) async {
     final defaultMappings = [
-      {'keyword': 'PAYROLL', 'category': 'Salary'},
-      {'keyword': 'HYDRO', 'category': 'Utilities'},
-      {'keyword': 'BILL', 'category': 'Utilities'},
-      {'keyword': 'UTILITY', 'category': 'Utilities'},
-      {'keyword': 'ELECTRIC', 'category': 'Utilities'},
-      {'keyword': 'ESSENCE', 'category': 'Car'},
-      {'keyword': 'GAS', 'category': 'Car'},
-      {'keyword': 'PETRO', 'category': 'Car'},
-      {'keyword': 'SHELL', 'category': 'Car'},
-      {'keyword': 'ADONIS', 'category': 'Groceries'},
-      {'keyword': 'MARCHE', 'category': 'Groceries'},
-      {'keyword': 'IGA', 'category': 'Groceries'},
-      {'keyword': 'METRO', 'category': 'Groceries'},
-      {'keyword': 'SUPER C', 'category': 'Groceries'},
-      {'keyword': 'E-TRANSFER', 'category': 'Other'},
-      {'keyword': 'TRANSFER', 'category': 'Other'},
-      {'keyword': 'RESTAURANT', 'category': 'Eating Out'},
-      {'keyword': 'CAFE', 'category': 'Eating Out'},
-      {'keyword': 'TIM HORTONS', 'category': 'Eating Out'},
-      {'keyword': 'MCDONALD', 'category': 'Eating Out'},
-      {'keyword': 'AMZN', 'category': 'Shopping'},
-      {'keyword': 'COSTCO', 'category': 'Shopping'},
-      {'keyword': 'CANADIAN TIRE', 'category': 'Shopping'},
-      {'keyword': 'NETFLIX', 'category': 'Entertainment'},
-      {'keyword': 'SPOTIFY', 'category': 'Entertainment'},
-      {'keyword': 'DISNEY', 'category': 'Entertainment'},
-      {'keyword': 'PRIME', 'category': 'Entertainment'},
-      {'keyword': 'GOUV', 'category': 'Tax Refund'},
-      {'keyword': 'GOVERNMENT', 'category': 'Tax Refund'},
+      {'description': 'PAYROLL', 'category': 'Salary'},
+      {'description': 'HYDRO', 'category': 'Utilities'},
+      {'description': 'BILL', 'category': 'Utilities'},
+      {'description': 'UTILITY', 'category': 'Utilities'},
+      {'description': 'ELECTRIC', 'category': 'Utilities'},
+      {'description': 'ESSENCE', 'category': 'Car'},
+      {'description': 'GAS', 'category': 'Car'},
+      {'description': 'PETRO', 'category': 'Car'},
+      {'description': 'SHELL', 'category': 'Car'},
+      {'description': 'ADONIS', 'category': 'Groceries'},
+      {'description': 'MARCHE', 'category': 'Groceries'},
+      {'description': 'IGA', 'category': 'Groceries'},
+      {'description': 'METRO', 'category': 'Groceries'},
+      {'description': 'SUPER C', 'category': 'Groceries'},
+      {'description': 'E-TRANSFER', 'category': 'Other'},
+      {'description': 'TRANSFER', 'category': 'Other'},
+      {'description': 'RESTAURANT', 'category': 'Eating Out'},
+      {'description': 'CAFE', 'category': 'Eating Out'},
+      {'description': 'TIM HORTONS', 'category': 'Eating Out'},
+      {'description': 'MCDONALD', 'category': 'Eating Out'},
+      {'description': 'AMZN', 'category': 'Shopping'},
+      {'description': 'COSTCO', 'category': 'Shopping'},
+      {'description': 'CANADIAN TIRE', 'category': 'Shopping'},
+      {'description': 'NETFLIX', 'category': 'Entertainment'},
+      {'description': 'SPOTIFY', 'category': 'Entertainment'},
+      {'description': 'DISNEY', 'category': 'Entertainment'},
+      {'description': 'PRIME', 'category': 'Entertainment'},
+      {'description': 'GOUV', 'category': 'Tax Refund'},
+      {'description': 'GOVERNMENT', 'category': 'Tax Refund'},
     ];
 
     for (final mapping in defaultMappings) {
@@ -444,37 +444,75 @@ class DatabaseHelper {
   }
 
   // Category Mapping Methods
-  Future<List<CategoryMapping>> getCategoryMappings() async {
+  Future<void> _ensureCategoryMappingTable() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query('category_mappings');
-    return List.generate(maps.length, (i) => CategoryMapping.fromMap(maps[i]));
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS category_mappings(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        description TEXT NOT NULL,
+        category TEXT NOT NULL,
+        UNIQUE(description)
+      )
+    ''');
+  }
+
+  Future<List<CategoryMapping>> getCategoryMappings() async {
+    try {
+      await _ensureCategoryMappingTable();
+      final db = await database;
+      final List<Map<String, dynamic>> maps =
+          await db.query('category_mappings');
+      return List.generate(
+          maps.length, (i) => CategoryMapping.fromMap(maps[i]));
+    } catch (e) {
+      print('Error getting category mappings: $e');
+      return [];
+    }
   }
 
   Future<void> addCategoryMapping(CategoryMapping mapping) async {
-    final db = await database;
-    await db.insert(
-      'category_mappings',
-      mapping.toMap(),
-      conflictAlgorithm: sqflite.ConflictAlgorithm.replace,
-    );
+    try {
+      await _ensureCategoryMappingTable();
+      final db = await database;
+      await db.insert(
+        'category_mappings',
+        mapping.toMap(),
+        conflictAlgorithm: sqflite.ConflictAlgorithm.replace,
+      );
+    } catch (e) {
+      print('Error adding category mapping: $e');
+      rethrow;
+    }
   }
 
-  Future<void> deleteCategoryMapping(String keyword) async {
-    final db = await database;
-    await db.delete(
-      'category_mappings',
-      where: 'keyword = ?',
-      whereArgs: [keyword],
-    );
+  Future<void> deleteCategoryMapping(String description) async {
+    try {
+      await _ensureCategoryMappingTable();
+      final db = await database;
+      await db.delete(
+        'category_mappings',
+        where: 'description = ?',
+        whereArgs: [description],
+      );
+    } catch (e) {
+      print('Error deleting category mapping: $e');
+      rethrow;
+    }
   }
 
   Future<void> updateCategoryMapping(CategoryMapping mapping) async {
-    final db = await database;
-    await db.update(
-      'category_mappings',
-      mapping.toMap(),
-      where: 'keyword = ?',
-      whereArgs: [mapping.keyword],
-    );
+    try {
+      await _ensureCategoryMappingTable();
+      final db = await database;
+      await db.update(
+        'category_mappings',
+        mapping.toMap(),
+        where: 'description = ?',
+        whereArgs: [mapping.description],
+      );
+    } catch (e) {
+      print('Error updating category mapping: $e');
+      rethrow;
+    }
   }
 } 

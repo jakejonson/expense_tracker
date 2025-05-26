@@ -1,22 +1,26 @@
 class CategoryMapping {
-  final String keyword;
+  final int? id;
+  final String description;
   final String category;
 
   CategoryMapping({
-    required this.keyword,
+    this.id,
+    required this.description,
     required this.category,
   });
 
   Map<String, dynamic> toMap() {
     return {
-      'keyword': keyword,
+      'id': id,
+      'description': description,
       'category': category,
     };
   }
 
   factory CategoryMapping.fromMap(Map<String, dynamic> map) {
     return CategoryMapping(
-      keyword: map['keyword'] as String,
+      id: map['id'] as int,
+      description: map['description'] as String,
       category: map['category'] as String,
     );
   }
