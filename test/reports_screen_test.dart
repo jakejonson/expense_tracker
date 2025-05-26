@@ -191,35 +191,50 @@ class _TestReportsScreenState extends State<TestReportsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  // Category breakdown
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Category Breakdown',
-                            style: Theme.of(context).textTheme.titleMedium,
+                  // Show empty state if no transactions
+                  if (_transactions.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text(
+                          'No expense data for this month',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
                           ),
-                          const SizedBox(height: 16),
-                          ..._categorySpending.entries.map((entry) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(entry.key),
-                                  Text('\$${entry.value.toStringAsFixed(2)}'),
-                                ],
-                              ),
-                            );
-                          }),
-                        ],
+                        ),
+                      ),
+                    )
+                  else
+                    // Category breakdown
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Category Breakdown',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            ..._categorySpending.entries.map((entry) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(entry.key),
+                                    Text('\$${entry.value.toStringAsFixed(2)}'),
+                                  ],
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
