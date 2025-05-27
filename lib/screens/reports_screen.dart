@@ -16,6 +16,8 @@ class ReportsScreen extends StatefulWidget {
 
 class _ReportsScreenState extends State<ReportsScreen> {
   DateTime _selectedMonth = DateTime.now();
+  DateTime? _startDate;
+  DateTime? _endDate;
   Map<String, double> _categorySpending = {};
   Map<String, double> _categoryIncome = {};
   Map<int, double> _monthlySpending = {};
@@ -46,12 +48,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Future<void> _loadData() async {
-    final transactions =
-        await DatabaseHelper.instance.getTransactionsForMonth(_selectedMonth);
+    DateTime startDate;
+    DateTime endDate;
+
+    if (_startDate != null && _endDate != null) {
+      startDate = _startDate!;
+      endDate = _endDate!;
+    } else {
+      startDate = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+      endDate = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
+    }
+
+    final transactions = await DatabaseHelper.instance
+        .getTransactionsByDateRange(startDate, endDate);
+    
     final Map<String, double> spending = {};
     final Map<String, double> income = {};
     final Map<int, double> dailySpending = {};
     final Map<int, double> monthlySpending = {};
+
+    // Calculate monthly spending for the year
+    for (var i = 1; i <= 12; i++) {
+      monthlySpending[i] = 0;
+    }
 
     // Get all transactions for the year to calculate monthly trends
     final yearStart = DateTime(_selectedMonth.year, 1, 1);
@@ -59,10 +78,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final yearlyTransactions = await DatabaseHelper.instance
         .getTransactionsByDateRange(yearStart, yearEnd);
 
-    // Calculate monthly spending for the year
-    for (var i = 1; i <= 12; i++) {
-      monthlySpending[i] = 0;
-    }
     for (var transaction in yearlyTransactions) {
       if (transaction.isExpense) {
         final month = transaction.date.month;
@@ -71,12 +86,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
       }
     }
 
-    // Calculate daily spending for the selected month
-    final daysInMonth =
-        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
-    for (var i = 1; i <= daysInMonth; i++) {
-      dailySpending[i] = 0;
+    // Calculate daily spending for the selected period
+    final daysInRange = endDate.difference(startDate).inDays + 1;
+    for (var i = 0; i < daysInRange; i++) {
+      final date = startDate.add(Duration(days: i));
+      dailySpending[date.day] = 0;
     }
+
     for (var transaction in transactions) {
       if (transaction.isExpense) {
         final day = transaction.date.day;
@@ -98,9 +114,30 @@ class _ReportsScreenState extends State<ReportsScreen> {
     });
   }
 
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _loadData();
+    }
+  }
+
   void _onMonthChanged(DateTime newMonth) {
     setState(() {
       _selectedMonth = newMonth;
+      _startDate = null;
+      _endDate = null;
     });
     _loadData();
   }
@@ -275,9 +312,31 @@ class _ReportsScreenState extends State<ReportsScreen> {
       ),
       body: Column(
         children: [
-          MonthSelector(
-            selectedMonth: _selectedMonth,
-            onMonthChanged: _onMonthChanged,
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
+              children: [
+                MonthSelector(
+                  selectedMonth: _selectedMonth,
+                  onMonthChanged: _onMonthChanged,
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _selectDateRange,
+                    icon: const Icon(Icons.date_range),
+                    label: Text(_startDate != null && _endDate != null
+                        ? '${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d').format(_endDate!)}'
+                        : 'Select Date Range'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(
