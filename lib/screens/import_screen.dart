@@ -120,8 +120,13 @@ class _ImportScreenState extends State<ImportScreen> {
               note: note,
             );
 
-            await _db.insertTransaction(transaction);
-            importedTransactions.add(transaction);
+            try {
+              await _db.insertTransaction(transaction);
+              importedTransactions.add(transaction);
+            } on DuplicateTransactionException catch (e) {
+              // Skip duplicate transactions during import
+              continue;
+            }
           } catch (e) {
             // Skip invalid rows
             continue;

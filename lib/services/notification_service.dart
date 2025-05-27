@@ -33,11 +33,19 @@ class NotificationService {
         isRecurring: 0,
       );
 
-      // Insert transaction into database
-      await DatabaseHelper.instance.insertTransaction(transaction);
+      try {
+        // Insert transaction into database
+        await DatabaseHelper.instance.insertTransaction(transaction);
 
-      // Log successful transaction creation
-      print('Transaction created: ${transaction.amount} - ${transaction.note}');
+        // Log successful transaction creation
+        print(
+            'Transaction created: ${transaction.amount} - ${transaction.note}');
+      } on DuplicateTransactionException catch (e) {
+        // Log duplicate transaction
+        print(
+            'Duplicate transaction detected: ${transaction.amount} - ${transaction.note}');
+        // We don't show a dialog here since this is a background service
+      }
     } catch (e) {
       print('Error creating transaction: $e');
     }

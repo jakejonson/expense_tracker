@@ -503,28 +503,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       frequency: _isRecurring ? _selectedFrequency : null,
                     );
 
-                    await DatabaseHelper.instance
-                        .insertTransaction(transaction);
-                    _amountController.clear();
-                    _noteController.clear();
-                    await _loadData();
+                    try {
+                      await DatabaseHelper.instance.insertTransaction(transaction);
+                      _amountController.clear();
+                      _noteController.clear();
+                      await _loadData();
 
-                    // Check if any budgets are surpassed after adding the transaction
-                    if (_isExpense) {
-                      await _checkBudgetSurpassed(transaction.amount);
-                    }
+                      // Check if any budgets are surpassed after adding the transaction
+                      if (_isExpense) {
+                        await _checkBudgetSurpassed(transaction.amount);
+                      }
 
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            '${_isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} added successfully',
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              '${_isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} added successfully',
+                            ),
+                            backgroundColor:
+                                _isExpense ? Colors.red : Colors.green,
+                            duration: const Duration(seconds: 1),
                           ),
-                          backgroundColor:
-                              _isExpense ? Colors.red : Colors.green,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
+                        );
+                      }
+                    } on DuplicateTransactionException catch (e) {
+                      if (mounted) {
+                        final shouldProceed = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Duplicate Transaction'),
+                            content: Text(
+                              'A transaction with the same amount (${transaction.amount.toStringAsFixed(2)}) exists on ${DateFormat('MMM d, y').format(transaction.date)}. Do you want to add it anyway?',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Add Anyway'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (shouldProceed == true) {
+                          // Force insert the transaction
+                          final db = await DatabaseHelper.instance.database;
+                          await db.insert('transactions', transaction.toMap());
+                          _amountController.clear();
+                          _noteController.clear();
+                          await _loadData();
+                        }
+                      }
                     }
                   }
                 },

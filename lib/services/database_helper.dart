@@ -4,6 +4,15 @@ import '../models/transaction.dart';
 import '../models/budget.dart';
 import '../models/category_mapping.dart';
 
+class DuplicateTransactionException implements Exception {
+  final List<Transaction> duplicates;
+  DuplicateTransactionException(this.duplicates);
+
+  @override
+  String toString() =>
+      'Duplicate transaction found: ${duplicates.length} similar transactions exist';
+}
+
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static sqflite.Database? _database;
@@ -131,6 +140,7 @@ class DatabaseHelper {
       {'description': 'AMAZON.CA', 'category': 'Shopping'},
       {'description': 'BEST BUY', 'category': 'Shopping'},
       {'description': 'DOLLARAMA', 'category': 'Shopping'},
+      {'description': 'IKEA', 'category': 'Shopping'},
       {'description': 'CANADIAN TIRE', 'category': 'Shopping'},
       {'description': 'NETFLIX', 'category': 'Entertainment'},
       {'description': 'SPOTIFY', 'category': 'Entertainment'},
@@ -167,6 +177,13 @@ class DatabaseHelper {
   // Transaction methods
   Future<int> insertTransaction(Transaction transaction) async {
     final db = await database;
+    
+    // Check for duplicate transactions
+    final duplicates = await findDuplicateTransactions(transaction);
+    if (duplicates.isNotEmpty) {
+      throw DuplicateTransactionException(duplicates);
+    }
+
     final id = await db.insert('transactions', transaction.toMap());
 
     // If this is a recurring transaction, schedule the next occurrence
@@ -422,6 +439,25 @@ class DatabaseHelper {
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0);
     return getTransactionsByDateRange(startOfMonth, endOfMonth);
+  }
+
+  Future<List<Transaction>> findDuplicateTransactions(
+      Transaction transaction) async {
+    final db = await database;
+    final startOfDay = DateTime(
+        transaction.date.year, transaction.date.month, transaction.date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'amount = ? AND date BETWEEN ? AND ?',
+      whereArgs: [
+        transaction.amount,
+        startOfDay.toIso8601String(),
+        endOfDay.toIso8601String()
+      ],
+    );
+    return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 
   Future<List<Budget>> getBudgetsForMonth(DateTime month) async {

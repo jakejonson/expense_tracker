@@ -92,9 +92,15 @@ class RBCImportService {
           note: note,
         );
 
-        await _db.insertTransaction(transaction);
-        transactions.add(transaction);
-        processedCount++;
+        try {
+          await _db.insertTransaction(transaction);
+          transactions.add(transaction);
+          processedCount++;
+        } on DuplicateTransactionException catch (e) {
+          // Skip duplicate transactions during import
+          skippedCount++;
+          continue;
+        }
       } catch (e) {
         errorCount++;
         continue;
