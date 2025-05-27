@@ -12,6 +12,12 @@ import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import 'import_screen.dart';
 
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${substring(1)}";
+  }
+}
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -29,6 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedCategory = Constants.expenseCategories.first;
   DateTime _selectedDate = DateTime.now();
   List<Transaction> _transactions = [];
+  List<Transaction> _scheduledTransactions = [];
   double _totalIncome = 0;
   double _totalExpense = 0;
   Map<String, double> _categorySpending = {};
@@ -48,6 +55,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await Future.wait([
       _loadTransactions(),
       _loadBudgets(),
+      _loadScheduledTransactions(),
     ]);
   }
 
@@ -85,6 +93,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _totalBudget = _budgets.fold(0, (sum, budget) => sum + budget.amount);
     });
     _calculateSpending();
+  }
+
+  Future<void> _loadScheduledTransactions() async {
+    final scheduledTransactions =
+        await DatabaseHelper.instance.getScheduledTransactions();
+    setState(() {
+      _scheduledTransactions = scheduledTransactions;
+    });
   }
 
   void _calculateSpending() {
@@ -158,6 +174,175 @@ class _DashboardScreenState extends State<DashboardScreen> {
             await DatabaseHelper.instance.markBudgetAsSurpassed(budget.id!);
           }
         }
+      }
+    }
+  }
+
+  Future<void> _cancelScheduledTransaction(Transaction transaction,
+      {bool cancelAll = false}) async {
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(cancelAll
+            ? 'Cancel All Scheduled Transactions'
+            : 'Cancel Scheduled Transaction'),
+        content: Text(
+          cancelAll
+              ? 'Are you sure you want to cancel all scheduled ${transaction.isExpense ? "expenses" : "incomes"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category}?'
+              : 'Are you sure you want to cancel the scheduled ${transaction.isExpense ? "expense" : "income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel == true) {
+      if (cancelAll) {
+        // Delete all transactions with the same category, amount, and expense type
+        final db = await DatabaseHelper.instance.database;
+        await db.delete(
+          'transactions',
+          where:
+              'category = ? AND amount = ? AND isExpense = ? AND isRecurring = ?',
+          whereArgs: [
+            transaction.category,
+            transaction.amount,
+            transaction.isExpense ? 1 : 0,
+            1
+          ],
+        );
+      } else {
+        // Delete single transaction
+        await DatabaseHelper.instance.deleteTransaction(transaction.id!);
+      }
+
+      await _loadScheduledTransactions();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(cancelAll
+                ? 'All scheduled transactions cancelled'
+                : 'Scheduled transaction cancelled'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _editScheduledTransaction(Transaction transaction) async {
+    final Map<String, dynamic> editResult = {};
+    final noteController = TextEditingController(text: transaction.note);
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Scheduled Transaction'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                initialValue: transaction.amount.toString(),
+                decoration: const InputDecoration(labelText: 'Amount'),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an amount';
+                  }
+                  if (double.tryParse(value) == null) {
+                    return 'Please enter a valid number';
+                  }
+                  return null;
+                },
+                onSaved: (value) => editResult['amount'] = double.parse(value!),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: transaction.category,
+                decoration: const InputDecoration(labelText: 'Category'),
+                items: (transaction.isExpense
+                        ? Constants.expenseCategories
+                        : Constants.incomeCategories)
+                    .map((category) => DropdownMenuItem(
+                          value: category,
+                          child: Text(category),
+                        ))
+                    .toList(),
+                onChanged: (value) => editResult['category'] = value,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                value: transaction.frequency,
+                decoration: const InputDecoration(labelText: 'Frequency'),
+                items: const [
+                  DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                  DropdownMenuItem(value: 'biweekly', child: Text('Bi-weekly')),
+                  DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
+                  DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                ],
+                onChanged: (value) => editResult['frequency'] = value,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Note (Optional)',
+                  hintText: 'Add a note to this transaction',
+                ),
+                maxLines: 2,
+                onChanged: (value) => editResult['note'] = value,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              editResult['note'] =
+                  noteController.text.isEmpty ? null : noteController.text;
+              Navigator.pop(context, editResult);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      final updatedTransaction = Transaction(
+        id: transaction.id,
+        amount: result['amount'] ?? transaction.amount,
+        category: result['category'] ?? transaction.category,
+        note: result['note'],
+        date: transaction.date,
+        isExpense: transaction.isExpense,
+        isRecurring: 1,
+        frequency: result['frequency'] ?? transaction.frequency,
+        nextOccurrence: transaction.nextOccurrence,
+      );
+
+      await DatabaseHelper.instance.updateTransaction(updatedTransaction);
+      await _loadScheduledTransactions();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Scheduled transaction updated'),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     }
   }
@@ -569,41 +754,157 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildRecentTransactions() {
-    // Get only the last 5 transactions
-    final recentTransactions = _transactions.take(5).toList();
-    
+  Widget _buildScheduledTransactions() {
+    // Group transactions by category and amount
+    final Map<String, List<Transaction>> groupedTransactions = {};
+    for (var transaction in _scheduledTransactions) {
+      final key =
+          '${transaction.category}_${transaction.amount}_${transaction.isExpense}';
+      if (!groupedTransactions.containsKey(key)) {
+        groupedTransactions[key] = [];
+      }
+      groupedTransactions[key]!.add(transaction);
+    }
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Recent Transactions',
-              style: Theme.of(context).textTheme.titleMedium,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Scheduled Transactions',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadScheduledTransactions,
+                  tooltip: 'Refresh',
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            if (recentTransactions.isEmpty)
+            if (_scheduledTransactions.isEmpty)
               const Center(
-                child: Text('No recent transactions'),
+                child: Text('No scheduled transactions'),
               )
             else
               ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: recentTransactions.length,
+                itemCount: groupedTransactions.length,
                 itemBuilder: (context, index) {
-                  final transaction = recentTransactions[index];
-                  return ListTile(
+                  final key = groupedTransactions.keys.elementAt(index);
+                  final transactions = groupedTransactions[key]!;
+                  final firstTransaction = transactions.first;
+
+                  // Sort transactions by next occurrence
+                  transactions.sort((a, b) => DateTime.parse(a.nextOccurrence!)
+                      .compareTo(DateTime.parse(b.nextOccurrence!)));
+
+                  return ExpansionTile(
+                    leading: Icon(
+                      firstTransaction.isExpense
+                          ? Constants
+                              .expenseCategoryIcons[firstTransaction.category]
+                          : Constants
+                              .incomeCategoryIcons[firstTransaction.category],
+                      color: firstTransaction.isExpense
+                          ? Colors.red
+                          : Colors.green,
+                    ),
                     title: Text(
-                      '${transaction.amount.toStringAsFixed(2)} - ${transaction.category}',
+                      '${firstTransaction.amount.toStringAsFixed(2)} - ${firstTransaction.category}',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
-                    subtitle: Text(
-                      DateFormat.yMMMd().format(transaction.date),
-                      style: Theme.of(context).textTheme.bodySmall,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${transactions.length} scheduled occurrence${transactions.length > 1 ? 's' : ''}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (firstTransaction.note != null &&
+                            firstTransaction.note!.isNotEmpty)
+                          Text(
+                            firstTransaction.note!,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey[600],
+                                    ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                      ],
                     ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: () =>
+                              _editScheduledTransaction(firstTransaction),
+                          tooltip: 'Edit All',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete),
+                          onPressed: () => _cancelScheduledTransaction(
+                              firstTransaction,
+                              cancelAll: true),
+                          tooltip: 'Cancel All',
+                        ),
+                      ],
+                    ),
+                    children: transactions.map((transaction) {
+                      return ListTile(
+                        title: Text(
+                          'Next: ${DateFormat.yMMMd().format(DateTime.parse(transaction.nextOccurrence!))}',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Frequency: ${transaction.frequency?.capitalize()}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            if (transaction.note != null &&
+                                transaction.note!.isNotEmpty)
+                              Text(
+                                transaction.note!,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      fontStyle: FontStyle.italic,
+                                      color: Colors.grey[600],
+                                    ),
+                              ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20),
+                              onPressed: () =>
+                                  _editScheduledTransaction(transaction),
+                              tooltip: 'Edit',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 20),
+                              onPressed: () =>
+                                  _cancelScheduledTransaction(transaction),
+                              tooltip: 'Cancel',
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   );
                 },
               ),
@@ -659,7 +960,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 16),
                   _buildTransactionForm(),
                   const SizedBox(height: 16),
-                  _buildRecentTransactions(),
+                  _buildScheduledTransactions(),
                 ],
               ),
             ),

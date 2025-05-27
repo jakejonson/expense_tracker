@@ -409,26 +409,40 @@ class DatabaseHelper {
 
       // Only create the transaction if it's in the past
       if (nextDate.isBefore(now)) {
-        final pastTransaction = Map<String, dynamic>.from(originalTransaction);
-        pastTransaction['date'] = nextDate.toIso8601String();
-        pastTransaction['originalTransactionId'] = originalId;
-        pastTransaction['nextOccurrence'] = nextDate.toIso8601String();
-        pastTransaction['id'] = null;
+        // Check if a transaction already exists for this date
+        final existingTransactions = await db.query(
+          'transactions',
+          where: 'amount = ? AND category = ? AND date = ? AND isExpense = ?',
+          whereArgs: [
+            originalTransaction['amount'],
+            originalTransaction['category'],
+            nextDate.toIso8601String(),
+            originalTransaction['isExpense'],
+          ],
+        );
 
-        await db.insert('transactions', pastTransaction);
+        if (existingTransactions.isEmpty) {
+          final pastTransaction =
+              Map<String, dynamic>.from(originalTransaction);
+          pastTransaction['date'] = nextDate.toIso8601String();
+          pastTransaction['originalTransactionId'] = originalId;
+          pastTransaction['nextOccurrence'] =
+              null; // Past transactions don't need nextOccurrence
+          pastTransaction['id'] = null;
+
+          await db.insert('transactions', pastTransaction);
+        }
       }
     }
 
-    // Schedule the next future occurrence without creating it
+    // Update the original transaction with the next occurrence
     final nextFutureDate = nextDate;
-    final nextTransaction = Map<String, dynamic>.from(originalTransaction);
-    nextTransaction['date'] = nextFutureDate.toIso8601String();
-    nextTransaction['originalTransactionId'] = originalId;
-    nextTransaction['nextOccurrence'] = nextFutureDate.toIso8601String();
-    nextTransaction['id'] = null;
-
-    // Do not insert the future transaction
-    // await db.insert('transactions', nextTransaction);
+    await db.update(
+      'transactions',
+      {'nextOccurrence': nextFutureDate.toIso8601String()},
+      where: 'id = ?',
+      whereArgs: [originalId],
+    );
   }
 
   DateTime _calculateNextDate(DateTime currentDate, String frequency) {
@@ -638,5 +652,16 @@ class DatabaseHelper {
     }
 
     return createdTransactions;
+  }
+
+  Future<List<Transaction>> getScheduledTransactions() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'isRecurring = ? AND nextOccurrence IS NOT NULL',
+      whereArgs: [1],
+      orderBy: 'nextOccurrence ASC',
+    );
+    return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 } 
