@@ -16,6 +16,7 @@ class Constants {
     'Tax',
     'Pet',
     'Saeid',
+    'Invest',
     'Travel',
     'Other',
   ];
@@ -37,6 +38,7 @@ class Constants {
     'Shopping': Icons.shopping_bag,
     'Transportation': Icons.directions_bus,
     'Utilities': Icons.power,
+    'Invest': Icons.attach_money,
     'Healthcare': Icons.local_hospital,
     'Education': Icons.school,
     'Pet': Icons.pets,
@@ -100,4 +102,26 @@ class Constants {
     'Quarter',
     'Year'
   ];
+
+  static const List<String> superCategories = ['Wants', 'Needs', 'Investments'];
+
+  static Map<String, String> categoryToSuperCategory = {
+    'Groceries': 'Needs',
+    'Rent': 'Needs',
+    'Car': 'Needs',
+    'Eating Out': 'Wants',
+    'Entertainment': 'Wants',
+    'Sports': 'Wants',
+    'Shopping': 'Wants',
+    'Transportation': 'Needs',
+    'Utilities': 'Needs',
+    'Healthcare': 'Needs',
+    'Education': 'Investments',
+    'Invest': 'Investments',
+    'Tax': 'Needs',
+    'Pet': 'Wants',
+    'Saeid': 'Wants',
+    'Travel': 'Wants',
+    'Other': 'Wants',
+  };
 } 

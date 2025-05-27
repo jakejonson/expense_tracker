@@ -4,6 +4,7 @@ import '../services/database_helper.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/month_selector.dart';
+import '../utils/constants.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -284,6 +285,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   const SizedBox(height: 16),
                   _buildSummaryCards(),
                   const SizedBox(height: 16),
+                  _buildSuperCategoryPieChart(),
+                  const SizedBox(height: 16),
                   _buildExpensePieChart(),
                   const SizedBox(height: 16),
                   _buildCategoryBreakdown(),
@@ -459,6 +462,89 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       backgroundColor: Colors.grey[200],
                       valueColor: AlwaysStoppedAnimation<Color>(
                         _categoryColors[colorIndex],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSuperCategoryPieChart() {
+    if (_categorySpending.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Calculate super category totals
+    final Map<String, double> superCategoryTotals = {};
+    for (var entry in _categorySpending.entries) {
+      final superCategory =
+          Constants.categoryToSuperCategory[entry.key] ?? 'Wants';
+      superCategoryTotals[superCategory] =
+          (superCategoryTotals[superCategory] ?? 0) + entry.value;
+    }
+
+    final totalExpense = superCategoryTotals.values.reduce((a, b) => a + b);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Super Category Distribution',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: PieChart(
+                PieChartData(
+                  sections: superCategoryTotals.entries.map((entry) {
+                    final percentage = (entry.value / totalExpense) * 100;
+                    final colorIndex =
+                        Constants.superCategories.indexOf(entry.key);
+                    return PieChartSectionData(
+                      value: entry.value,
+                      title: '${percentage.toStringAsFixed(1)}%',
+                      radius: 100,
+                      titleStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                      color: _categoryColors[colorIndex],
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...superCategoryTotals.entries.map((entry) {
+              final percentage = (entry.value / totalExpense) * 100;
+              final colorIndex = Constants.superCategories.indexOf(entry.key);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      color: _categoryColors[colorIndex],
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(entry.key),
+                    ),
+                    Text(
+                      '\$${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],

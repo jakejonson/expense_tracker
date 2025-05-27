@@ -61,6 +61,10 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
 
     if (result != null) {
       Constants.addCategory(result, _isExpense);
+      if (_isExpense) {
+        Constants.categoryToSuperCategory[result] =
+            'Wants'; // Default to Wants for new categories
+      }
       setState(() {
         if (_isExpense) {
           _expenseCategories = List.from(Constants.expenseCategories);
@@ -69,6 +73,47 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
         }
       });
       _newCategoryController.clear();
+    }
+  }
+
+  Future<void> _changeSuperCategory(String category) async {
+    final currentSuperCategory =
+        Constants.categoryToSuperCategory[category] ?? 'Wants';
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Change Super Category'),
+        content: DropdownButtonFormField<String>(
+          value: currentSuperCategory,
+          decoration: const InputDecoration(
+            labelText: 'Super Category',
+            border: OutlineInputBorder(),
+          ),
+          items: Constants.superCategories.map((superCategory) {
+            return DropdownMenuItem(
+              value: superCategory,
+              child: Text(superCategory),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value != null) {
+              Navigator.pop(context, value);
+            }
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        Constants.categoryToSuperCategory[category] = result;
+      });
     }
   }
 
@@ -180,9 +225,26 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                       ? Constants.expenseCategoryIcons[category]
                       : Constants.incomeCategoryIcons[category]),
                   title: Text(category),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _deleteCategory(category),
+                  subtitle: _isExpense
+                      ? Text(
+                          'Super Category: ${Constants.categoryToSuperCategory[category] ?? "Wants"}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_isExpense)
+                        IconButton(
+                          icon: const Icon(Icons.category),
+                          onPressed: () => _changeSuperCategory(category),
+                          tooltip: 'Change Super Category',
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () => _deleteCategory(category),
+                      ),
+                    ],
                   ),
                 );
               },
