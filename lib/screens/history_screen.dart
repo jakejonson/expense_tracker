@@ -140,13 +140,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ...Constants.expenseCategories.map(
                       (category) => DropdownMenuItem(
                         value: category,
-                        child: Text(category),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(category),
+                        ),
                       ),
                     ),
                     ...Constants.incomeCategories.map(
                       (category) => DropdownMenuItem(
                         value: category,
-                        child: Text(category),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(category),
+                        ),
                       ),
                     ),
                   ],
@@ -402,7 +408,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               .map(
                             (category) => DropdownMenuItem<String>(
                               value: category,
-                              child: Text(category),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(category),
+                              ),
                             ),
                           ),
                         ],
@@ -663,7 +672,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           : Constants.incomeCategories)
                       .map((category) => DropdownMenuItem(
                             value: category,
-                            child: Text(category),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(category),
+                            ),
                           ))
                       .toList(),
                   onChanged: (String? value) {

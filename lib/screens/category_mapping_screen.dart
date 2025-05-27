@@ -95,31 +95,44 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
                   child: DropdownButtonFormField<String>(
                     value: _selectedCategory,
                     decoration: const InputDecoration(
-                      labelText: 'Category',
+                      labelText: 'Cat.',
                       border: OutlineInputBorder(),
                     ),
                     items: [
                       ...Constants.expenseCategories.map(
                         (category) => DropdownMenuItem(
                           value: category,
-                          child: Row(
-                            children: [
-                              Icon(Constants.expenseCategoryIcons[category]),
-                              const SizedBox(width: 8),
-                              Text(category),
-                            ],
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: SizedBox(
+                              width: 200,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                      Constants.expenseCategoryIcons[category]),
+                                  const SizedBox(width: 8),
+                                  Text(category),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                       ...Constants.incomeCategories.map(
                         (category) => DropdownMenuItem(
                           value: category,
-                          child: Row(
-                            children: [
-                              Icon(Constants.incomeCategoryIcons[category]),
-                              const SizedBox(width: 8),
-                              Text(category),
-                            ],
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: SizedBox(
+                              width: 200,
+                              child: Row(
+                                children: [
+                                  Icon(Constants.incomeCategoryIcons[category]),
+                                  const SizedBox(width: 8),
+                                  Text(category),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
