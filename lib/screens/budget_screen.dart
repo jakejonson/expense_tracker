@@ -5,6 +5,7 @@ import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 import 'budget_details_screen.dart';
 import '../widgets/month_selector.dart';
+import '../widgets/category_selection_dialog.dart';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -169,82 +170,99 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Budget'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Monthly Budget Amount',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('Overall Budget'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add Budget'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Monthly Budget Amount',
+                    border: OutlineInputBorder(),
                   ),
-                  ...Constants.expenseCategories.map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => CategorySelectionDialog(
+                        isExpense: true,
+                        selectedCategory: selectedCategory,
+                        onCategorySelected: (category) {
+                          setState(() {
+                            selectedCategory = category;
+                          });
+                        },
+                      ),
+                    );
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Category (Optional)',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Row(
+                      children: [
+                        if (selectedCategory != null) ...[
+                          Icon(
+                            Constants.expenseCategoryIcons[selectedCategory],
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(selectedCategory ?? 'Overall Budget'),
+                      ],
                     ),
                   ),
-                ],
-                onChanged: (value) {
-                  selectedCategory = value;
-                },
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: const Text('Month'),
-                subtitle: Text(
-                  DateFormat.yMMMM().format(selectedMonth),
                 ),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final picked = await _showMonthPicker(context, selectedMonth);
-                  if (picked != null) {
-                    selectedMonth = picked;
-                  }
-                },
-              ),
-            ],
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Month'),
+                  subtitle: Text(
+                    DateFormat.yMMMM().format(selectedMonth),
+                  ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked =
+                        await _showMonthPicker(context, selectedMonth);
+                    if (picked != null) {
+                      selectedMonth = picked;
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (amountController.text.isNotEmpty) {
+                  final startDate =
+                      DateTime(selectedMonth.year, selectedMonth.month, 1);
+                  final endDate =
+                      DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
+                  Navigator.pop(context, {
+                    'amount': double.parse(amountController.text),
+                    'category': selectedCategory,
+                    'startDate': startDate.toIso8601String(),
+                    'endDate': endDate.toIso8601String(),
+                  });
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (amountController.text.isNotEmpty) {
-                final startDate =
-                    DateTime(selectedMonth.year, selectedMonth.month, 1);
-                final endDate =
-                    DateTime(selectedMonth.year, selectedMonth.month + 1, 0);
-                Navigator.pop(context, {
-                  'amount': double.parse(amountController.text),
-                  'category': selectedCategory,
-                  'startDate': startDate.toIso8601String(),
-                  'endDate': endDate.toIso8601String(),
-                });
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
 
@@ -284,85 +302,100 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit Budget for ${budget.category ?? 'Overall'}'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Budget Amount',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category (Optional)',
-                  border: OutlineInputBorder(),
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('Overall Budget'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Edit Budget for ${budget.category ?? 'Overall'}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(
+                    labelText: 'Budget Amount',
+                    border: OutlineInputBorder(),
                   ),
-                  ...Constants.expenseCategories.map(
-                    (category) => DropdownMenuItem(
-                      value: category,
-                      child: Text(category),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => CategorySelectionDialog(
+                        isExpense: true,
+                        selectedCategory: selectedCategory,
+                        onCategorySelected: (category) {
+                          setState(() {
+                            selectedCategory = category;
+                          });
+                        },
+                      ),
+                    );
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Category (Optional)',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Row(
+                      children: [
+                        if (selectedCategory != null) ...[
+                          Icon(
+                            Constants.expenseCategoryIcons[selectedCategory],
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(selectedCategory ?? 'Overall Budget'),
+                      ],
                     ),
                   ),
-                ],
-                onChanged: (value) {
-                  selectedCategory = value;
-                },
-              ),
-              const SizedBox(height: 16),
-              ListTile(
-                title: const Text('Date Range'),
-                subtitle: Text(
-                  '${DateFormat.yMMMd().format(selectedDateRange.start)} - ${DateFormat.yMMMd().format(selectedDateRange.end)}',
                 ),
-                trailing: const Icon(Icons.calendar_today),
-                onTap: () async {
-                  final picked = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDateRange: selectedDateRange,
-                  );
-                  if (picked != null) {
-                    selectedDateRange = picked;
-                  }
-                },
-              ),
-            ],
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Date Range'),
+                  subtitle: Text(
+                    '${DateFormat.yMMMd().format(selectedDateRange.start)} - ${DateFormat.yMMMd().format(selectedDateRange.end)}',
+                  ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                      initialDateRange: selectedDateRange,
+                    );
+                    if (picked != null) {
+                      selectedDateRange = picked;
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (amountController.text.isNotEmpty) {
+                  Navigator.pop(context, {
+                    'id': budget.id,
+                    'amount': double.parse(amountController.text),
+                    'category': selectedCategory,
+                    'startDate': selectedDateRange.start.toIso8601String(),
+                    'endDate': selectedDateRange.end.toIso8601String(),
+                  });
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (amountController.text.isNotEmpty) {
-                Navigator.pop(context, {
-                  'id': budget.id,
-                  'amount': double.parse(amountController.text),
-                  'category': selectedCategory,
-                  'startDate': selectedDateRange.start.toIso8601String(),
-                  'endDate': selectedDateRange.end.toIso8601String(),
-                });
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 

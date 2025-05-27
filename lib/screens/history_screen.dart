@@ -5,6 +5,8 @@ import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 import '../widgets/month_selector.dart';
 import '../models/category_mapping.dart';
+import '../widgets/category_grid.dart';
+import '../widgets/category_selection_dialog.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -146,34 +148,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'New Category (Optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    ...Constants.expenseCategories.map(
-                      (category) => DropdownMenuItem(
-                        value: category,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(category),
-                        ),
+                InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => CategorySelectionDialog(
+                        isExpense: _isExpense ?? true,
+                        selectedCategory: _selectedCategory,
+                        onCategorySelected: (category) {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
                       ),
-                    ),
-                    ...Constants.incomeCategories.map(
-                      (category) => DropdownMenuItem(
-                        value: category,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(category),
-                        ),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    selectedCategory = value;
+                    );
                   },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Row(
+                      children: [
+                        if (_selectedCategory != null) ...[
+                          Icon(
+                            _isExpense == true
+                                ? Constants
+                                    .expenseCategoryIcons[_selectedCategory]
+                                : Constants
+                                    .incomeCategoryIcons[_selectedCategory],
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(_selectedCategory ?? 'Select Category'),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 SegmentedButton<bool?>(
@@ -425,35 +437,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedCategory,
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: [
-                          const DropdownMenuItem<String>(
-                            value: null,
-                            child: Text('All Categories'),
-                          ),
-                          ...(_isExpense == null || _isExpense == true
-                                  ? Constants.expenseCategories
-                                  : Constants.incomeCategories)
-                              .map(
-                            (category) => DropdownMenuItem<String>(
-                              value: category,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(category),
-                              ),
+                      child: InkWell(
+                        onTap: () {
+                          showDialog(
+                            context: context,
+                            builder: (context) => CategorySelectionDialog(
+                              isExpense: _isExpense ?? true,
+                              selectedCategory: _selectedCategory,
+                              onCategorySelected: (category) {
+                                setState(() {
+                                  _selectedCategory = category;
+                                });
+                              },
                             ),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedCategory = value;
-                          });
+                          );
                         },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Category',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.arrow_drop_down),
+                          ),
+                          child: Row(
+                            children: [
+                              if (_selectedCategory != null) ...[
+                                Icon(
+                                  _isExpense == true
+                                      ? Constants.expenseCategoryIcons[
+                                          _selectedCategory]
+                                      : Constants.incomeCategoryIcons[
+                                          _selectedCategory],
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Text(_selectedCategory ?? 'All Categories'),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -671,6 +692,47 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => CategorySelectionDialog(
+                        isExpense: isExpense,
+                        selectedCategory: selectedCategory,
+                        onCategorySelected: (category) {
+                          setState(() {
+                            selectedCategory = category;
+                            categoryChanged = category != transaction.category;
+                          });
+                        },
+                      ),
+                    );
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Row(
+                      children: [
+                        if (selectedCategory != null) ...[
+                          Icon(
+                            isExpense
+                                ? Constants
+                                    .expenseCategoryIcons[selectedCategory]
+                                : Constants
+                                    .incomeCategoryIcons[selectedCategory],
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(selectedCategory ?? 'Select Category'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(
@@ -688,37 +750,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   onSelectionChanged: (Set<bool> newSelection) {
                     setState(() {
                       isExpense = newSelection.first;
-                      selectedCategory = isExpense
-                          ? Constants.expenseCategories.first
-                          : Constants.incomeCategories.first;
                     });
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  value: selectedCategory,
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: (isExpense
-                          ? Constants.expenseCategories
-                          : Constants.incomeCategories)
-                      .map((category) => DropdownMenuItem(
-                            value: category,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(category),
-                            ),
-                          ))
-                      .toList(),
-                  onChanged: (String? value) {
-                    if (value != null) {
-                      setState(() {
-                        selectedCategory = value;
-                        categoryChanged = value != transaction.category;
-                      });
-                    }
                   },
                 ),
                 const SizedBox(height: 16),

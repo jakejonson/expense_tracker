@@ -11,6 +11,8 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
 import 'import_screen.dart';
+import '../widgets/category_grid.dart';
+import '../widgets/category_selection_dialog.dart';
 
 extension StringExtension on String {
   String capitalize() {
@@ -266,18 +268,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onSaved: (value) => editResult['amount'] = double.parse(value!),
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: transaction.category,
-                decoration: const InputDecoration(labelText: 'Category'),
-                items: (transaction.isExpense
-                        ? Constants.expenseCategories
-                        : Constants.incomeCategories)
-                    .map((category) => DropdownMenuItem(
-                          value: category,
-                          child: Text(category),
-                        ))
-                    .toList(),
-                onChanged: (value) => editResult['category'] = value,
+              InkWell(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => CategorySelectionDialog(
+                      isExpense: _isExpense,
+                      selectedCategory: _selectedCategory,
+                      onCategorySelected: (category) {
+                        setState(() {
+                          _selectedCategory = category;
+                        });
+                      },
+                    ),
+                  );
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.arrow_drop_down),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isExpense
+                            ? Constants.expenseCategoryIcons[_selectedCategory]
+                            : Constants.incomeCategoryIcons[_selectedCategory],
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_selectedCategory ?? 'Select Category'),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
@@ -546,36 +570,40 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedCategory,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: (_isExpense
-                        ? Constants.expenseCategories
-                        : Constants.incomeCategories)
-                    .map((category) => DropdownMenuItem(
-                          value: category,
-                          child: Row(
-                            children: [
-                              Icon(Constants.expenseCategories
-                                      .contains(category)
-                                  ? Constants.expenseCategoryIcons[category]
-                                  : Constants.incomeCategoryIcons[category]),
-                              const SizedBox(width: 8),
-                              Text(category),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (String? value) {
-                  if (value != null) {
-                    setState(() {
-                      _selectedCategory = value;
-                    });
-                  }
+              InkWell(
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => CategorySelectionDialog(
+                      isExpense: _isExpense,
+                      selectedCategory: _selectedCategory,
+                      onCategorySelected: (category) {
+                        setState(() {
+                          _selectedCategory = category;
+                        });
+                      },
+                    ),
+                  );
                 },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                    suffixIcon: Icon(Icons.arrow_drop_down),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isExpense
+                            ? Constants.expenseCategoryIcons[_selectedCategory]
+                            : Constants.incomeCategoryIcons[_selectedCategory],
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(_selectedCategory ?? 'Select Category'),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(

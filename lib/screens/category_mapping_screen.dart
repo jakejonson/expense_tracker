@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:expense_tracker/models/category_mapping.dart';
 import 'package:expense_tracker/services/database_helper.dart';
 import 'package:expense_tracker/utils/constants.dart';
+import '../widgets/category_grid.dart';
+import '../widgets/category_selection_dialog.dart';
 
 class CategoryMappingScreen extends StatefulWidget {
   const CategoryMappingScreen({super.key});
@@ -92,56 +94,40 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Cat.',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      ...Constants.expenseCategories.map(
-                        (category) => DropdownMenuItem(
-                          value: category,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: SizedBox(
-                              width: 200,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                      Constants.expenseCategoryIcons[category]),
-                                  const SizedBox(width: 8),
-                                  Text(category),
-                                ],
-                              ),
-                            ),
-                          ),
+                  child: InkWell(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => CategorySelectionDialog(
+                          isExpense: true,
+                          selectedCategory: _selectedCategory,
+                          onCategorySelected: (category) {
+                            setState(() {
+                              _selectedCategory = category;
+                            });
+                          },
                         ),
-                      ),
-                      ...Constants.incomeCategories.map(
-                        (category) => DropdownMenuItem(
-                          value: category,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: SizedBox(
-                              width: 200,
-                              child: Row(
-                                children: [
-                                  Icon(Constants.incomeCategoryIcons[category]),
-                                  const SizedBox(width: 8),
-                                  Text(category),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                    onChanged: (String? value) {
-                      setState(() {
-                        _selectedCategory = value;
-                      });
+                      );
                     },
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(),
+                        suffixIcon: Icon(Icons.arrow_drop_down),
+                      ),
+                      child: Row(
+                        children: [
+                          if (_selectedCategory != null) ...[
+                            Icon(
+                              Constants.expenseCategoryIcons[_selectedCategory],
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Text(_selectedCategory ?? 'Select Category'),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
