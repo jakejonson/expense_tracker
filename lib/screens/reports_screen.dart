@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../widgets/month_selector.dart';
 import '../utils/constants.dart';
+import 'dart:math';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -439,35 +440,128 @@ class _ReportsScreenState extends State<ReportsScreen> {
               final colorIndex =
                   sortedCategories.indexOf(entry) %
                       _categoryColors.length;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(entry.key),
-                        Text(
-                          '\$${entry.value.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
+              return InkWell(
+                onTap: () => _showCategoryTransactions(entry.key),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(entry.key),
+                          Text(
+                            '\$${entry.value.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    LinearProgressIndicator(
-                      value: percentage / 100,
-                      backgroundColor: Colors.grey[200],
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        _categoryColors[colorIndex],
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: percentage / 100,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _categoryColors[colorIndex],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCategoryTransactions(String category) {
+    final categoryTransactions = _transactions
+        .where((t) => t.category == category)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '$category Transactions',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: categoryTransactions.isEmpty
+                  ? const Center(
+                      child: Text('No transactions found for this category'),
+                    )
+                  : ListView.builder(
+                      controller: scrollController,
+                      itemCount: categoryTransactions.length,
+                      itemBuilder: (context, index) {
+                        final transaction = categoryTransactions[index];
+                        return ListTile(
+                          leading: Icon(
+                            transaction.isExpense
+                                ? Constants
+                                    .expenseCategoryIcons[transaction.category]
+                                : Constants
+                                    .incomeCategoryIcons[transaction.category],
+                            color: transaction.isExpense
+                                ? Colors.red
+                                : Colors.green,
+                          ),
+                          title: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  transaction.note ?? transaction.category,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Text(
+                                '\$${transaction.amount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: transaction.isExpense
+                                      ? Colors.red
+                                      : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          subtitle: Text(
+                            DateFormat.yMMMd().format(transaction.date),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        );
+                      },
+                    ),
+            ),
           ],
         ),
       ),
@@ -503,24 +597,57 @@ class _ReportsScreenState extends State<ReportsScreen> {
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: superCategoryTotals.entries.map((entry) {
-                    final percentage = (entry.value / totalExpense) * 100;
-                    final colorIndex =
-                        Constants.superCategories.indexOf(entry.key);
-                    return PieChartSectionData(
-                      value: entry.value,
-                      title: '${percentage.toStringAsFixed(1)}%',
-                      radius: 100,
-                      titleStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      color: _categoryColors[colorIndex],
-                    );
-                  }).toList(),
+              child: GestureDetector(
+                onTapDown: (details) {
+                  final RenderBox box = context.findRenderObject() as RenderBox;
+                  final Offset localPosition =
+                      box.globalToLocal(details.globalPosition);
+                  final double centerX = box.size.width / 2;
+                  final double centerY = box.size.height / 2;
+                  final double radius = 100;
+
+                  // Calculate angle and distance from center
+                  final double dx = localPosition.dx - centerX;
+                  final double dy = localPosition.dy - centerY;
+                  final double distance = sqrt(dx * dx + dy * dy);
+
+                  if (distance <= radius) {
+                    final double angle = atan2(dy, dx);
+                    final double normalizedAngle = (angle + pi) / (2 * pi);
+
+                    // Calculate which section was tapped
+                    double currentAngle = 0;
+                    for (var entry in superCategoryTotals.entries) {
+                      final sectionAngle =
+                          (entry.value / totalExpense) * 2 * pi;
+                      if (normalizedAngle >= currentAngle &&
+                          normalizedAngle <= currentAngle + sectionAngle) {
+                        _showSuperCategoryTrend(entry.key);
+                        break;
+                      }
+                      currentAngle += sectionAngle;
+                    }
+                  }
+                },
+                child: PieChart(
+                  PieChartData(
+                    sections: superCategoryTotals.entries.map((entry) {
+                      final percentage = (entry.value / totalExpense) * 100;
+                      final colorIndex =
+                          Constants.superCategories.indexOf(entry.key);
+                      return PieChartSectionData(
+                        value: entry.value,
+                        title: '${percentage.toStringAsFixed(1)}%',
+                        radius: 100,
+                        titleStyle: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        color: _categoryColors[colorIndex],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
@@ -528,32 +655,254 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ...superCategoryTotals.entries.map((entry) {
               final percentage = (entry.value / totalExpense) * 100;
               final colorIndex = Constants.superCategories.indexOf(entry.key);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      color: _categoryColors[colorIndex],
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(entry.key),
-                    ),
-                    Text(
-                      '\$${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+              return InkWell(
+                onTap: () => _showSuperCategoryTrend(entry.key),
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        color: _categoryColors[colorIndex],
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(entry.key),
+                      ),
+                      Text(
+                        '\$${entry.value.toStringAsFixed(2)} (${percentage.toStringAsFixed(1)}%)',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }).toList(),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showSuperCategoryTrend(String superCategory) async {
+    // Get transactions for the last 6 months
+    final now = DateTime.now();
+    final sixMonthsAgo = DateTime(now.year, now.month - 5, 1);
+    final transactions = await DatabaseHelper.instance
+        .getTransactionsByDateRange(sixMonthsAgo, now);
+
+    // Calculate monthly totals for both super categories
+    final Map<DateTime, Map<String, double>> monthlyTotals = {};
+    for (var i = 0; i < 6; i++) {
+      final month = DateTime(now.year, now.month - i, 1);
+      monthlyTotals[month] = {
+        'Wants': 0,
+        'Needs': 0,
+        'Investments': 0,
+      };
+    }
+
+    for (var transaction in transactions) {
+      if (transaction.isExpense) {
+        final categorySuperCategory =
+            Constants.categoryToSuperCategory[transaction.category] ?? 'Wants';
+        final month =
+            DateTime(transaction.date.year, transaction.date.month, 1);
+        if (monthlyTotals.containsKey(month)) {
+          monthlyTotals[month]![categorySuperCategory] =
+              monthlyTotals[month]![categorySuperCategory]! +
+                  transaction.amount;
+        }
+      }
+    }
+
+    // Sort months chronologically
+    final sortedMonths = monthlyTotals.keys.toList()
+      ..sort((a, b) => a.compareTo(b));
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Super Categories Monthly Trend',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: LineChart(
+                  LineChartData(
+                    gridData: const FlGridData(show: true),
+                    titlesData: FlTitlesData(
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 40,
+                          getTitlesWidget: (value, meta) {
+                            return Text(
+                              '\$${value.toInt()}',
+                              style: const TextStyle(fontSize: 10),
+                            );
+                          },
+                        ),
+                      ),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= 0 &&
+                                value.toInt() < sortedMonths.length) {
+                              return Text(
+                                DateFormat('MMM')
+                                    .format(sortedMonths[value.toInt()]),
+                                style: const TextStyle(fontSize: 10),
+                              );
+                            }
+                            return const Text('');
+                          },
+                        ),
+                      ),
+                      rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                      topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: true),
+                    lineBarsData: [
+                      // Wants trend
+                      LineChartBarData(
+                        spots: List.generate(sortedMonths.length, (index) {
+                          return FlSpot(
+                            index.toDouble(),
+                            monthlyTotals[sortedMonths[index]]!['Wants']!,
+                          );
+                        }),
+                        isCurved: false,
+                        color: _categoryColors[
+                            Constants.superCategories.indexOf('Wants')],
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: _categoryColors[
+                                  Constants.superCategories.indexOf('Wants')]
+                              .withOpacity(0.2),
+                        ),
+                      ),
+                      // Needs trend
+                      LineChartBarData(
+                        spots: List.generate(sortedMonths.length, (index) {
+                          return FlSpot(
+                            index.toDouble(),
+                            monthlyTotals[sortedMonths[index]]!['Needs']!,
+                          );
+                        }),
+                        isCurved: false,
+                        color: _categoryColors[
+                            Constants.superCategories.indexOf('Needs')],
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: _categoryColors[
+                                  Constants.superCategories.indexOf('Needs')]
+                              .withOpacity(0.2),
+                        ),
+                      ),
+                      // Investments trend
+                      LineChartBarData(
+                        spots: List.generate(sortedMonths.length, (index) {
+                          return FlSpot(
+                            index.toDouble(),
+                            monthlyTotals[sortedMonths[index]]!['Investments']!,
+                          );
+                        }),
+                        isCurved: false,
+                        color: _categoryColors[
+                            Constants.superCategories.indexOf('Investments')],
+                        barWidth: 3,
+                        isStrokeCapRound: true,
+                        dotData: const FlDotData(show: true),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: _categoryColors[Constants.superCategories
+                                  .indexOf('Investments')]
+                              .withOpacity(0.2),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Legend
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildLegendItem(
+                      'Wants',
+                      _categoryColors[
+                          Constants.superCategories.indexOf('Wants')]),
+                  const SizedBox(width: 24),
+                  _buildLegendItem(
+                      'Needs',
+                      _categoryColors[
+                          Constants.superCategories.indexOf('Needs')]),
+                  const SizedBox(width: 24),
+                  _buildLegendItem(
+                      'Investments',
+                      _categoryColors[
+                          Constants.superCategories.indexOf('Investments')]),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        Text(label),
+      ],
     );
   }
 } 
