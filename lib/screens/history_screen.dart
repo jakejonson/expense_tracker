@@ -4,6 +4,7 @@ import '../services/database_helper.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 import '../widgets/month_selector.dart';
+import '../models/category_mapping.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -607,6 +608,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     bool isExpense = transaction.isExpense;
     String selectedCategory = transaction.category;
     DateTime selectedDate = transaction.date;
+    bool categoryChanged = false;
 
     final result = await showDialog<bool>(
       context: context,
@@ -659,27 +661,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   items: (isExpense
                           ? Constants.expenseCategories
                           : Constants.incomeCategories)
-                      .map(
-                        (category) => DropdownMenuItem(
-                          value: category,
-                          child: Row(
-                            children: [
-                              Icon(
-                                isExpense
-                                    ? Constants.expenseCategoryIcons[category]
-                                    : Constants.incomeCategoryIcons[category],
-                              ),
-                              const SizedBox(width: 8),
-                              Text(category),
-                            ],
-                          ),
-                        ),
-                      )
+                      .map((category) => DropdownMenuItem(
+                            value: category,
+                            child: Text(category),
+                          ))
                       .toList(),
                   onChanged: (String? value) {
                     if (value != null) {
                       setState(() {
                         selectedCategory = value;
+                        categoryChanged = value != transaction.category;
                       });
                     }
                   },
@@ -719,6 +710,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
+                if (categoryChanged &&
+                    transaction.note != null &&
+                    transaction.note!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      try {
+                        await DatabaseHelper.instance.addCategoryMapping(
+                          CategoryMapping(
+                            description: transaction.note!,
+                            category: selectedCategory,
+                          ),
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Added mapping: ${transaction.note} → $selectedCategory'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error adding mapping: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.add),
+                    label: Text(
+                        'Add mapping: ${transaction.note} → $selectedCategory'),
+                  ),
+                ],
               ],
             ),
           ),
