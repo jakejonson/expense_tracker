@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../models/transaction.dart';
 import 'database_helper.dart';
 
@@ -10,9 +11,48 @@ class NotificationService {
 
   final _eventChannel =
       const EventChannel('com.example.expense_tracker/transactions');
+  final _notifications = FlutterLocalNotificationsPlugin();
   StreamSubscription? _subscription;
   Timer? _recurringCheckTimer;
   DateTime? _lastCheckTime;
+
+  Future<void> initialize() async {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _notifications.initialize(initSettings);
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const androidDetails = AndroidNotificationDetails(
+      'recurring_transactions',
+      'Recurring Transactions',
+      channelDescription: 'Notifications for recurring transactions',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title,
+      body,
+      details,
+    );
+  }
 
   void startListening() {
     _subscription?.cancel();
@@ -42,7 +82,17 @@ class NotificationService {
         return;
       }
 
-      await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
+      final createdTransactions =
+          await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
+
+      // Show notification for each created transaction
+      for (var transaction in createdTransactions) {
+        await _showNotification(
+          'Recurring Transaction Created',
+          '${transaction.isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category} has been created.',
+        );
+      }
+
       _lastCheckTime = now;
     } catch (e) {
       print('Error checking recurring transactions: $e');

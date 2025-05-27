@@ -6,7 +6,14 @@ import 'screens/reports_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize notification service
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  notificationService.startListening();
+
   runApp(const MyApp());
 }
 
