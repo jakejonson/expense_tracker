@@ -397,41 +397,53 @@ class DatabaseHelper {
 
   Future<void> _scheduleNextTransaction(
       Map<String, dynamic> originalTransaction, int originalId) async {
-    final db = await instance.database;
+    final db = await database;
     final frequency = originalTransaction['frequency'] as String;
     final currentDate = DateTime.parse(originalTransaction['date'] as String);
-    DateTime nextDate;
+    final now = DateTime.now();
+    DateTime nextDate = currentDate;
 
-    // Calculate next occurrence based on frequency
-    switch (frequency) {
-      case 'weekly':
-        nextDate = currentDate.add(const Duration(days: 7));
-        break;
-      case 'biweekly':
-        nextDate = currentDate.add(const Duration(days: 14));
-        break;
-      case 'monthly':
-        nextDate =
-            DateTime(currentDate.year, currentDate.month + 1, currentDate.day);
-        break;
-      case 'yearly':
-        nextDate =
-            DateTime(currentDate.year + 1, currentDate.month, currentDate.day);
-        break;
-      default:
-        return;
+    // Create all past occurrences up to now
+    while (nextDate.isBefore(now)) {
+      nextDate = _calculateNextDate(nextDate, frequency);
+
+      // Only create the transaction if it's in the past
+      if (nextDate.isBefore(now)) {
+        final pastTransaction = Map<String, dynamic>.from(originalTransaction);
+        pastTransaction['date'] = nextDate.toIso8601String();
+        pastTransaction['originalTransactionId'] = originalId;
+        pastTransaction['nextOccurrence'] = nextDate.toIso8601String();
+        pastTransaction['id'] = null;
+
+        await db.insert('transactions', pastTransaction);
+      }
     }
 
-    // Only create the next occurrence if it's in the future
-    if (nextDate.isBefore(DateTime.now())) {
-      // Create the next occurrence
-      final nextTransaction = Map<String, dynamic>.from(originalTransaction);
-      nextTransaction['date'] = nextDate.toIso8601String();
-      nextTransaction['originalTransactionId'] = originalId;
-      nextTransaction['nextOccurrence'] = nextDate.toIso8601String();
-      nextTransaction['id'] = null; // Remove the id to create a new transaction
+    // Schedule the next future occurrence
+    final nextFutureDate = nextDate;
+    final nextTransaction = Map<String, dynamic>.from(originalTransaction);
+    nextTransaction['date'] = nextFutureDate.toIso8601String();
+    nextTransaction['originalTransactionId'] = originalId;
+    nextTransaction['nextOccurrence'] = nextFutureDate.toIso8601String();
+    nextTransaction['id'] = null;
 
-      await db.insert('transactions', nextTransaction);
+    await db.insert('transactions', nextTransaction);
+  }
+
+  DateTime _calculateNextDate(DateTime currentDate, String frequency) {
+    switch (frequency) {
+      case 'weekly':
+        return currentDate.add(const Duration(days: 7));
+      case 'biweekly':
+        return currentDate.add(const Duration(days: 14));
+      case 'monthly':
+        return DateTime(
+            currentDate.year, currentDate.month + 1, currentDate.day);
+      case 'yearly':
+        return DateTime(
+            currentDate.year + 1, currentDate.month, currentDate.day);
+      default:
+        return currentDate;
     }
   }
 
@@ -586,6 +598,37 @@ class DatabaseHelper {
     } catch (e) {
       print('Error updating category mapping: $e');
       rethrow;
+    }
+  }
+
+  // Add this new method to check and create new recurring transactions
+  Future<void> checkAndCreateRecurringTransactions() async {
+    final db = await database;
+    final now = DateTime.now();
+
+    // Get all recurring transactions that have a nextOccurrence in the past
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'isRecurring = ? AND nextOccurrence <= ?',
+      whereArgs: [1, now.toIso8601String()],
+    );
+
+    for (var map in maps) {
+      final transaction = Transaction.fromMap(map);
+      if (transaction.frequency != null) {
+        // Create the next occurrence
+        final nextDate =
+            _calculateNextDate(transaction.date, transaction.frequency!);
+
+        // Create new transaction
+        final nextTransaction = Map<String, dynamic>.from(transaction.toMap());
+        nextTransaction['date'] = nextDate.toIso8601String();
+        nextTransaction['originalTransactionId'] = transaction.id;
+        nextTransaction['nextOccurrence'] = nextDate.toIso8601String();
+        nextTransaction['id'] = null;
+
+        await db.insert('transactions', nextTransaction);
+      }
     }
   }
 } 

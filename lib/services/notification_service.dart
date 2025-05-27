@@ -11,6 +11,8 @@ class NotificationService {
   final _eventChannel =
       const EventChannel('com.example.expense_tracker/transactions');
   StreamSubscription? _subscription;
+  Timer? _recurringCheckTimer;
+  DateTime? _lastCheckTime;
 
   void startListening() {
     _subscription?.cancel();
@@ -20,6 +22,31 @@ class NotificationService {
         _handleTransaction(event);
       }
     });
+
+    // Check for recurring transactions every 6 hours instead of every hour
+    _recurringCheckTimer?.cancel();
+    _recurringCheckTimer = Timer.periodic(const Duration(hours: 6), (timer) {
+      _checkRecurringTransactions();
+    });
+
+    // Also check when the service starts
+    _checkRecurringTransactions();
+  }
+
+  Future<void> _checkRecurringTransactions() async {
+    try {
+      // Skip if we've checked in the last hour
+      final now = DateTime.now();
+      if (_lastCheckTime != null &&
+          now.difference(_lastCheckTime!) < const Duration(hours: 1)) {
+        return;
+      }
+
+      await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
+      _lastCheckTime = now;
+    } catch (e) {
+      print('Error checking recurring transactions: $e');
+    }
   }
 
   Future<void> _handleTransaction(Map<dynamic, dynamic> event) async {
@@ -54,5 +81,8 @@ class NotificationService {
   void stopListening() {
     _subscription?.cancel();
     _subscription = null;
+    _recurringCheckTimer?.cancel();
+    _recurringCheckTimer = null;
+    _lastCheckTime = null;
   }
 }
