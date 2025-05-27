@@ -27,9 +27,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
   String _sortBy = 'date'; // 'date' or 'amount'
   bool _sortAscending = false;
 
+  // Static variables to persist filter state
+  static String? _lastSelectedCategory;
+  static bool? _lastIsExpense;
+  static String _lastSearchText = '';
+  static String _lastSortBy = 'date';
+  static bool _lastSortAscending = false;
+  static DateTime _lastSelectedMonth = DateTime.now();
+
   @override
   void initState() {
     super.initState();
+    // Restore last filter state
+    _selectedCategory = _lastSelectedCategory;
+    _isExpense = _lastIsExpense;
+    _searchController.text = _lastSearchText;
+    _sortBy = _lastSortBy;
+    _sortAscending = _lastSortAscending;
+    _selectedMonth = _lastSelectedMonth;
     _loadTransactions();
   }
 
@@ -316,6 +331,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _loadTransactions();
   }
 
+  void _resetFilters() {
+    setState(() {
+      _selectedCategory = null;
+      _isExpense = null;
+      _searchController.clear();
+      _sortBy = 'date';
+      _sortAscending = false;
+      _selectedMonth = DateTime.now();
+      _isSelectionMode = false;
+      _selectedTransactions.clear();
+    });
+    _loadTransactions();
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredTransactions = _getFilteredTransactions();
@@ -324,6 +353,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text('Transaction History'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Reset Filters',
+            onPressed: _resetFilters,
+          ),
           IconButton(
             icon: Icon(
               _sortBy == 'date' ? Icons.calendar_today : Icons.attach_money,
@@ -801,6 +835,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   void dispose() {
+    // Save current filter state
+    _lastSelectedCategory = _selectedCategory;
+    _lastIsExpense = _isExpense;
+    _lastSearchText = _searchController.text;
+    _lastSortBy = _sortBy;
+    _lastSortAscending = _sortAscending;
+    _lastSelectedMonth = _selectedMonth;
+    
     _searchController.dispose();
     _editAmountController.dispose();
     _editNoteController.dispose();
