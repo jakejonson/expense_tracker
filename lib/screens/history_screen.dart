@@ -361,172 +361,186 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Widget build(BuildContext context) {
     final filteredTransactions = _getFilteredTransactions();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transaction History'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Reset Filters',
-            onPressed: _resetFilters,
-          ),
-          IconButton(
-            icon: Icon(
-              _sortBy == 'date' ? Icons.calendar_today : Icons.attach_money,
-              color: _sortAscending ? Colors.blue : null,
-            ),
-            tooltip:
-                'Sort by ${_sortBy} (${_sortAscending ? 'ascending' : 'descending'})',
-            onPressed: _toggleSort,
-          ),
-          if (_isSelectionMode) ...[
+    return WillPopScope(
+      onWillPop: () async {
+        if (_isSelectionMode) {
+          setState(() {
+            _isSelectionMode = false;
+            _selectedTransactions.clear();
+          });
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Transaction History'),
+          actions: [
             IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed:
-                  _selectedTransactions.isEmpty ? null : _batchEditTransactions,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Reset Filters',
+              onPressed: _resetFilters,
             ),
             IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _selectedTransactions.isEmpty
-                  ? null
-                  : _batchDeleteTransactions,
+              icon: Icon(
+                _sortBy == 'date' ? Icons.calendar_today : Icons.attach_money,
+                color: _sortAscending ? Colors.blue : null,
+              ),
+              tooltip:
+                  'Sort by ${_sortBy} (${_sortAscending ? 'ascending' : 'descending'})',
+              onPressed: _toggleSort,
             ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () {
-                setState(() {
-                  _isSelectionMode = false;
-                  _selectedTransactions.clear();
-                });
-              },
-            ),
+            if (_isSelectionMode) ...[
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: _selectedTransactions.isEmpty
+                    ? null
+                    : _batchEditTransactions,
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: _selectedTransactions.isEmpty
+                    ? null
+                    : _batchDeleteTransactions,
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () {
+                  setState(() {
+                    _isSelectionMode = false;
+                    _selectedTransactions.clear();
+                  });
+                },
+              ),
+            ],
           ],
-        ],
-      ),
-      body: Column(
-        children: [
-          MonthSelector(
-            selectedMonth: _selectedMonth,
-            onMonthChanged: _onMonthChanged,
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    labelText: 'Search',
-                    hintText: 'Search in amounts or notes',
-                    prefixIcon: const Icon(Icons.search),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              setState(() {
-                                _searchController.clear();
-                              });
-                            },
-                          )
-                        : null,
-                  ),
-                  onChanged: (value) => setState(() {}),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () {
-                          showDialog(
-                            context: context,
-                            builder: (context) => CategorySelectionDialog(
-                              isExpense: _isExpense ?? true,
-                              selectedCategory: _selectedCategory,
-                              onCategorySelected: (category) {
+        ),
+        body: Column(
+          children: [
+            MonthSelector(
+              selectedMonth: _selectedMonth,
+              onMonthChanged: _onMonthChanged,
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search',
+                      hintText: 'Search in amounts or notes',
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
                                 setState(() {
-                                  _selectedCategory = category;
+                                  _searchController.clear();
                                 });
                               },
+                            )
+                          : null,
+                    ),
+                    onChanged: (value) => setState(() {}),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => CategorySelectionDialog(
+                                isExpense: _isExpense ?? true,
+                                selectedCategory: _selectedCategory,
+                                onCategorySelected: (category) {
+                                  setState(() {
+                                    _selectedCategory = category;
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Category',
+                              border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.arrow_drop_down),
                             ),
-                          );
-                        },
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Category',
-                            border: OutlineInputBorder(),
-                            suffixIcon: Icon(Icons.arrow_drop_down),
-                          ),
-                          child: Row(
-                            children: [
-                              if (_selectedCategory != null) ...[
-                                Icon(
-                                  _isExpense == true
-                                      ? Constants.expenseCategoryIcons[
-                                          _selectedCategory]
-                                      : Constants.incomeCategoryIcons[
-                                          _selectedCategory],
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                const SizedBox(width: 8),
+                            child: Row(
+                              children: [
+                                if (_selectedCategory != null) ...[
+                                  Icon(
+                                    _isExpense == true
+                                        ? Constants.expenseCategoryIcons[
+                                            _selectedCategory]
+                                        : Constants.incomeCategoryIcons[
+                                            _selectedCategory],
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Text(_selectedCategory ?? 'All Categories'),
                               ],
-                              Text(_selectedCategory ?? 'All Categories'),
-                            ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: DropdownButtonFormField<bool?>(
-                        value: _isExpense,
-                        decoration: const InputDecoration(
-                          labelText: 'Type',
-                          border: OutlineInputBorder(),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<bool?>(
+                          value: _isExpense,
+                          decoration: const InputDecoration(
+                            labelText: 'Type',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem<bool?>(
+                              value: null,
+                              child: Text('All'),
+                            ),
+                            DropdownMenuItem<bool?>(
+                              value: true,
+                              child: Text('Expense'),
+                            ),
+                            DropdownMenuItem<bool?>(
+                              value: false,
+                              child: Text('Income'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _isExpense = value;
+                              _selectedCategory = null;
+                            });
+                          },
                         ),
-                        items: const [
-                          DropdownMenuItem<bool?>(
-                            value: null,
-                            child: Text('All'),
-                          ),
-                          DropdownMenuItem<bool?>(
-                            value: true,
-                            child: Text('Expense'),
-                          ),
-                          DropdownMenuItem<bool?>(
-                            value: false,
-                            child: Text('Income'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _isExpense = value;
-                            _selectedCategory = null;
-                          });
-                        },
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredTransactions.isEmpty
-                    ? Center(
-                        child: Text(
-                          _searchController.text.isNotEmpty
-                              ? 'No transactions found matching "${_searchController.text}"'
-                              : 'No transactions for ${DateFormat.yMMMM().format(_selectedMonth)}',
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      )
-                    : _buildTransactionList(),
-          ),
-        ],
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredTransactions.isEmpty
+                      ? Center(
+                          child: Text(
+                            _searchController.text.isNotEmpty
+                                ? 'No transactions found matching "${_searchController.text}"'
+                                : 'No transactions for ${DateFormat.yMMMM().format(_selectedMonth)}',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                        )
+                      : _buildTransactionList(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -603,61 +617,82 @@ class _HistoryScreenState extends State<HistoryScreen> {
               }
             },
             child: Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                leading: _isSelectionMode
-                    ? Checkbox(
-                        value: _selectedTransactions.contains(transaction.id),
-                        onChanged: (value) {
-                          _toggleTransactionSelection(transaction.id!);
-                        },
-                      )
-                    : Icon(
-                        transaction.isExpense
-                            ? Constants
-                                .expenseCategoryIcons[transaction.category]
-                            : Constants
-                                .incomeCategoryIcons[transaction.category],
-                        color:
-                            transaction.isExpense ? Colors.red : Colors.green,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: InkWell(
+                onTap: _isSelectionMode
+                    ? () => _toggleTransactionSelection(transaction.id!)
+                    : null,
+                child: ListTile(
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  leading: _isSelectionMode
+                      ? Checkbox(
+                          value: _selectedTransactions.contains(transaction.id),
+                          onChanged: (value) {
+                            _toggleTransactionSelection(transaction.id!);
+                          },
+                        )
+                      : Icon(
+                          transaction.isExpense
+                              ? Constants
+                                  .expenseCategoryIcons[transaction.category]
+                              : Constants
+                                  .incomeCategoryIcons[transaction.category],
+                          color:
+                              transaction.isExpense ? Colors.red : Colors.green,
+                          size: 20,
+                        ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          transaction.category,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        transaction.category,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      Text(
+                        NumberFormat.currency(symbol: '\$')
+                            .format(transaction.amount),
+                        style: TextStyle(
+                          color:
+                              transaction.isExpense ? Colors.red : Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      NumberFormat.currency(symbol: '\$')
-                          .format(transaction.amount),
-                      style: TextStyle(
-                        color:
-                            transaction.isExpense ? Colors.red : Colors.green,
-                        fontWeight: FontWeight.bold,
+                    ],
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (transaction.note != null &&
+                          transaction.note!.isNotEmpty)
+                        Text(
+                          transaction.note!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      Text(
+                        DateFormat.yMMMd().format(transaction.date),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withOpacity(0.6),
+                            ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  trailing: _isSelectionMode
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.edit, size: 20),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          onPressed: () => _editTransaction(transaction),
+                        ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (transaction.note != null &&
-                        transaction.note!.isNotEmpty)
-                      Text(transaction.note!),
-                    Text(
-                      DateFormat.yMMMd().format(transaction.date),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-                trailing: _isSelectionMode
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _editTransaction(transaction),
-                      ),
               ),
             ),
           ),
