@@ -34,6 +34,11 @@ class _ReportsScreenState extends State<ReportsScreen> {
     Colors.indigo,
   ];
 
+  Color _getCategoryColor(String category, List<String> categories) {
+    final index = categories.indexOf(category);
+    return _categoryColors[index % _categoryColors.length];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -289,8 +294,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   _buildSuperCategoryPieChart(),
                   const SizedBox(height: 16),
                   _buildExpensePieChart(),
-                  const SizedBox(height: 16),
-                  _buildCategoryBreakdown(),
                 ],
               ),
             ),
@@ -371,6 +374,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     final totalExpense = _categorySpending.values.reduce((a, b) => a + b);
+    final sortedCategories = _categorySpending.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return Card(
       child: Padding(
@@ -383,95 +388,89 @@ class _ReportsScreenState extends State<ReportsScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: _categorySpending.entries.map((entry) {
-                    final percentage = (entry.value / totalExpense) * 100;
-                    final colorIndex =
-                        _categorySpending.keys.toList().indexOf(entry.key) %
-                            _categoryColors.length;
-                    return PieChartSectionData(
-                      value: entry.value,
-                      title: '${percentage.toStringAsFixed(1)}%',
-                      radius: 100,
-                      titleStyle: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      color: _categoryColors[colorIndex],
-                    );
-                  }).toList(),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Pie Chart
+                SizedBox(
+                  width: 200,
+                  height: 200,
+                  child: PieChart(
+                    PieChartData(
+                      sections: sortedCategories.map((entry) {
+                        final percentage = (entry.value / totalExpense) * 100;
+                        return PieChartSectionData(
+                          value: entry.value,
+                          title: '${percentage.toStringAsFixed(1)}%',
+                          radius: 100,
+                          titleStyle: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                          color: _getCategoryColor(entry.key,
+                              sortedCategories.map((e) => e.key).toList()),
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCategoryBreakdown() {
-    if (_categorySpending.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final totalExpense = _categorySpending.values.reduce((a, b) => a + b);
-    
-    // Sort categories by amount in descending order
-    final sortedCategories = _categorySpending.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Category Breakdown',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            ...sortedCategories.map((entry) {
-              final percentage = (entry.value / totalExpense) * 100;
-              final colorIndex =
-                  sortedCategories.indexOf(entry) %
-                      _categoryColors.length;
-              return InkWell(
-                onTap: () => _showCategoryTransactions(entry.key),
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                const SizedBox(width: 16),
+                // Category Breakdown
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(entry.key),
-                          Text(
-                            '\$${entry.value.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
+                      ...sortedCategories.map((entry) {
+                        final percentage = (entry.value / totalExpense) * 100;
+                        return InkWell(
+                          onTap: () => _showCategoryTransactions(entry.key),
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        entry.key,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                    Text(
+                                      '\$${entry.value.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                LinearProgressIndicator(
+                                  value: percentage / 100,
+                                  backgroundColor: Colors.grey[200],
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    _getCategoryColor(
+                                        entry.key,
+                                        sortedCategories
+                                            .map((e) => e.key)
+                                            .toList()),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      LinearProgressIndicator(
-                        value: percentage / 100,
-                        backgroundColor: Colors.grey[200],
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          _categoryColors[colorIndex],
-                        ),
-                      ),
+                        );
+                      }).toList(),
                     ],
                   ),
                 ),
-              );
-            }).toList(),
+              ],
+            ),
           ],
         ),
       ),
