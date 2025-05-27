@@ -137,9 +137,9 @@ class RBCImportService {
   bool _shouldSkipTransaction(String description1, String description2) {
     final skipPatterns = [
       'PAYMENT - THANK YOU / PAIEMENT - MERCI',
-      'WWW TRANSFER - 1008',
-      'PAYMENT RECEIVED',
-      'PAYMENT SENT',
+      'TRANSFER',
+      'E-TRANSFER',
+      'TRF',
     ];
 
     return skipPatterns.any((pattern) =>

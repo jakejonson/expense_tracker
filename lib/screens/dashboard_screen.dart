@@ -592,13 +592,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.batch_prediction),
+          tooltip: 'Manage Categories',
+          onPressed: _navigateToCategoryManagement,
+        ),
         title: const Text('Dashboard'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.batch_prediction),
-            tooltip: 'Manage Categories',
-            onPressed: _navigateToCategoryManagement,
-          ),
           IconButton(
             icon: const Icon(Icons.download_rounded),
             tooltip: 'Import from Excel',

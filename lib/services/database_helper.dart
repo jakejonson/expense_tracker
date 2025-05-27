@@ -104,8 +104,6 @@ class DatabaseHelper {
       {'description': 'METRO COTE NEIGES', 'category': 'Groceries'},
       {'description': 'SUPER C', 'category': 'Groceries'},
       {'description': 'COSTCO WHOLESALE', 'category': 'Groceries'},
-      {'description': 'E-TRANSFER', 'category': 'Other'},
-      {'description': 'TRANSFER', 'category': 'Other'},
       {'description': 'MONDOU', 'category': 'Pet'},
       {'description': 'PET', 'category': 'Pet'},
       {'description': 'AFFIRM', 'category': 'Healthcare'},

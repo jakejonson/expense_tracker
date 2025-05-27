@@ -23,6 +23,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
   final Set<int> _selectedTransactions = {};
   bool _isLoading = true;
   DateTime _selectedMonth = DateTime.now();
+  String _sortBy = 'date'; // 'date' or 'amount'
+  bool _sortAscending = false;
 
   @override
   void initState() {
@@ -263,14 +265,41 @@ class _HistoryScreenState extends State<HistoryScreen> {
       }
       if (_searchController.text.isNotEmpty) {
         final searchTerm = _searchController.text.toLowerCase().trim();
-        if (transaction.note == null || transaction.note!.isEmpty) {
-          return false;
+        // Search in amount
+        if (transaction.amount.toString().contains(searchTerm)) {
+          return true;
         }
-        return transaction.note!.toLowerCase().contains(searchTerm);
+        // Search in note
+        if (transaction.note != null &&
+            transaction.note!.toLowerCase().contains(searchTerm)) {
+          return true;
+        }
+        return false;
       }
       return true;
     }).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
+      ..sort((a, b) {
+        if (_sortBy == 'date') {
+          return _sortAscending
+              ? a.date.compareTo(b.date)
+              : b.date.compareTo(a.date);
+        } else {
+          // Always sort amount in descending order
+          return b.amount.compareTo(a.amount);
+        }
+      });
+  }
+
+  void _toggleSort() {
+    setState(() {
+      if (_sortBy == 'date') {
+        _sortBy = 'amount';
+        _sortAscending = false;
+      } else {
+        _sortBy = 'date';
+        _sortAscending = !_sortAscending;
+      }
+    });
   }
 
   void _onMonthChanged(DateTime newMonth) {
@@ -288,6 +317,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text('Transaction History'),
         actions: [
+          IconButton(
+            icon: Icon(
+              _sortBy == 'date' ? Icons.calendar_today : Icons.attach_money,
+              color: _sortAscending ? Colors.blue : null,
+            ),
+            tooltip:
+                'Sort by ${_sortBy} (${_sortAscending ? 'ascending' : 'descending'})',
+            onPressed: _toggleSort,
+          ),
           if (_isSelectionMode) ...[
             IconButton(
               icon: const Icon(Icons.edit),
@@ -325,8 +363,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    labelText: 'Search in notes',
-                    hintText: 'Enter text to search in transaction notes',
+                    labelText: 'Search',
+                    hintText: 'Search in amounts or notes',
                     prefixIcon: const Icon(Icons.search),
                     border: const OutlineInputBorder(),
                     suffixIcon: _searchController.text.isNotEmpty

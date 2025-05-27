@@ -415,6 +415,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     final totalExpense = _categorySpending.values.reduce((a, b) => a + b);
+    
+    // Sort categories by amount in descending order
+    final sortedCategories = _categorySpending.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return Card(
       child: Padding(
@@ -427,10 +431,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            ..._categorySpending.entries.map((entry) {
+            ...sortedCategories.map((entry) {
               final percentage = (entry.value / totalExpense) * 100;
               final colorIndex =
-                  _categorySpending.keys.toList().indexOf(entry.key) %
+                  sortedCategories.indexOf(entry) %
                       _categoryColors.length;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
