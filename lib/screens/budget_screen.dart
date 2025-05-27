@@ -165,7 +165,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> _showAddBudgetDialog() async {
     final amountController = TextEditingController();
     String? selectedCategory;
-    DateTime selectedMonth = DateTime.now();
+    DateTime selectedMonth = _selectedMonth;
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -504,16 +504,17 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
     if (selectedBudget == null || !mounted) return;
 
-    // Create new budget for current month
-    final now = DateTime.now();
-    final startOfCurrentMonth = DateTime(now.year, now.month, 1);
-    final endOfCurrentMonth = DateTime(now.year, now.month + 1, 0);
+    // Create new budget for the selected month in the view
+    final startOfSelectedMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endOfSelectedMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
 
     final newBudget = Budget(
       amount: selectedBudget.amount,
       category: selectedBudget.category,
-      startDate: startOfCurrentMonth,
-      endDate: endOfCurrentMonth,
+      startDate: startOfSelectedMonth,
+      endDate: endOfSelectedMonth,
       hasSurpassed: false,
     );
 
