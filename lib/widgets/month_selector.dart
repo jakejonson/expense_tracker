@@ -33,7 +33,7 @@ class MonthSelector extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withAlpha(26),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

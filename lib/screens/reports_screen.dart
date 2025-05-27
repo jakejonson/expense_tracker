@@ -190,11 +190,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         },
                       ),
                     ),
-                    rightTitles:
-                        const AxisTitles(
+                    rightTitles: const AxisTitles(
                         sideTitles: SideTitles(showTitles: false)),
-                    topTitles:
-                        const AxisTitles(
+                    topTitles: const AxisTitles(
                         sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
@@ -210,7 +208,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Theme.of(context).primaryColor.withOpacity(0.2),
+                        color: Theme.of(context).primaryColor.withAlpha(51),
                       ),
                     ),
                   ],
@@ -270,11 +268,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         },
                       ),
                     ),
-                    rightTitles:
-                        const AxisTitles(
+                    rightTitles: const AxisTitles(
                         sideTitles: SideTitles(showTitles: false)),
-                    topTitles:
-                        const AxisTitles(
+                    topTitles: const AxisTitles(
                         sideTitles: SideTitles(showTitles: false)),
                   ),
                   borderData: FlBorderData(show: true),
@@ -290,7 +286,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Theme.of(context).primaryColor.withOpacity(0.2),
+                        color: Theme.of(context).primaryColor.withAlpha(51),
                       ),
                     ),
                   ],

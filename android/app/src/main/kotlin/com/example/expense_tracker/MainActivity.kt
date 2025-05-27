@@ -37,7 +37,7 @@ class MainActivity: FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     eventSink = events
-                    registerReceiver(receiver, IntentFilter("com.example.expense_tracker.TRANSACTION_DETECTED"))
+                    registerReceiver(receiver, IntentFilter("com.example.expense_tracker.TRANSACTION_DETECTED"), Context.RECEIVER_NOT_EXPORTED)
                 }
 
                 override fun onCancel(arguments: Any?) {

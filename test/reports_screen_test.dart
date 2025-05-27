@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/screens/reports_screen.dart';
 import 'package:expense_tracker/models/transaction.dart' as models;
-import 'package:expense_tracker/services/database_helper.dart';
 import 'package:sqflite/sqflite.dart' as sqflite;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:expense_tracker/widgets/month_selector.dart';
@@ -245,7 +244,6 @@ class _TestReportsScreenState extends State<TestReportsScreen> {
 }
 
 void main() {
-  late DatabaseHelper db;
   late sqflite.Database database;
   late MockDatabaseHelper mockDb;
 
@@ -289,8 +287,6 @@ void main() {
       ),
     );
 
-    db = DatabaseHelper.instance;
-    db.setTestDatabase(database);
     mockDb = MockDatabaseHelper();
   });
 

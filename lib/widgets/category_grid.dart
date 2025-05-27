@@ -29,10 +29,14 @@ class CategoryGrid extends StatelessWidget {
       itemCount: categories.length,
       itemBuilder: (context, index) {
         final category = categories[index];
-        final isSelected = category == selectedCategory;
-        final icon = isExpense
-            ? Constants.expenseCategoryIcons[category]
-            : Constants.incomeCategoryIcons[category];
+        final isSelected = category == 'All'
+            ? selectedCategory == null || selectedCategory!.isEmpty
+            : category == selectedCategory;
+        final icon = category == 'All'
+            ? Icons.category
+            : (isExpense
+                ? Constants.expenseCategoryIcons[category]
+                : Constants.incomeCategoryIcons[category]);
 
         return InkWell(
           onTap: () => onCategorySelected(category),
@@ -42,13 +46,13 @@ class CategoryGrid extends StatelessWidget {
                   ? Theme.of(context)
                       .colorScheme
                       .primaryContainer
-                      .withOpacity(0.3)
+                      .withAlpha(77)
                   : Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.outline.withOpacity(0.5),
+                    : Theme.of(context).colorScheme.outline.withAlpha(128),
                 width: isSelected ? 2 : 1,
               ),
             ),

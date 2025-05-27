@@ -2,9 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/services/database_helper.dart';
 import 'package:expense_tracker/services/rbc_import_service.dart';
 import 'package:expense_tracker/models/category_mapping.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:path/path.dart' as path;
 import 'package:file_selector/file_selector.dart';
 import 'dart:io';
 

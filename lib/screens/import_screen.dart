@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:excel/excel.dart';
 import 'dart:io';
-import 'package:path/path.dart' as path;
 import 'package:expense_tracker/services/database_helper.dart';
 import 'package:expense_tracker/services/rbc_import_service.dart';
 import 'package:expense_tracker/models/transaction.dart';
@@ -152,46 +151,6 @@ class _ImportScreenState extends State<ImportScreen> {
         _isImporting = false;
         _errorMessage = 'Error importing file: ${e.toString()}';
       });
-    }
-  }
-
-  Future<void> _importRBCFile() async {
-    try {
-      const typeGroup = XTypeGroup(
-        label: 'CSV',
-        extensions: ['csv'],
-      );
-      final file = await openFile(acceptedTypeGroups: [typeGroup]);
-      if (file == null) return;
-
-      final result = await _rbcImportService.importFromCSV(file);
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Import completed:\n'
-            '✓ ${result.processedCount} transactions processed\n'
-            '⚠ ${result.skippedCount} transactions skipped\n'
-            '✗ ${result.errorCount} errors',
-          ),
-          duration: const Duration(seconds: 5),
-        ),
-      );
-
-      // Refresh the transactions list by setting state
-      setState(() {
-        _importedCount = result.processedCount;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error importing file: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
     }
   }
 

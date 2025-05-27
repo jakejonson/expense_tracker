@@ -3,7 +3,6 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart' as sqflite;
 import '../lib/models/transaction.dart';
 import '../lib/models/category_mapping.dart';
 import '../lib/services/database_helper.dart';
-import '../lib/services/notification_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';
@@ -13,7 +12,6 @@ import 'features_test.mocks.dart';
 
 void main() {
   late DatabaseHelper db;
-  late MockFlutterLocalNotificationsPlugin mockNotifications;
 
   setUp(() async {
     // Initialize FFI for testing
@@ -53,9 +51,6 @@ void main() {
         },
       ),
     ));
-
-    // Initialize mock notifications
-    mockNotifications = MockFlutterLocalNotificationsPlugin();
   });
 
   tearDown(() async {

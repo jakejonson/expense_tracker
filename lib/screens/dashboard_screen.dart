@@ -942,33 +942,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _onMonthChanged(DateTime newMonth) {
-    setState(() {
-      _selectedMonth = newMonth;
-    });
-    _loadData();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.batch_prediction),
-          tooltip: 'Manage Categories',
-          onPressed: _navigateToCategoryManagement,
-        ),
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.download_rounded),
-            tooltip: 'Import from Excel',
-            onPressed: _importFromExcel,
-          ),
-          IconButton(
-            icon: const Icon(Icons.upload_file_rounded),
-            tooltip: 'Export to Excel',
-            onPressed: _exportToExcel,
+            icon: const Icon(Icons.category),
+            onPressed: _navigateToCategoryManagement,
           ),
         ],
       ),
@@ -976,7 +958,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           MonthSelector(
             selectedMonth: _selectedMonth,
-            onMonthChanged: _onMonthChanged,
+            onMonthChanged: (month) {
+              setState(() {
+                _selectedMonth = month;
+              });
+              _loadData();
+            },
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Income',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      '\$${_totalIncome.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.green,
+                          ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Expenses',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      '\$${_totalExpense.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: Colors.red,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           Expanded(
             child: SingleChildScrollView(
@@ -996,180 +1021,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _exportToExcel() async {
-    try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-
-      // Get all transactions and budgets
-      final transactions = await DatabaseHelper.instance.getAllTransactions();
-      final budgets = await DatabaseHelper.instance.getBudgets();
-
-      // Create Excel file
-      var excel = Excel.createExcel();
-
-      // Remove default sheet
-      excel.delete('Sheet1');
-
-      // Create named sheets
-      var transactionsSheet = excel['Transactions'];
-      var budgetsSheet = excel['Budgets'];
-
-      // Add headers for transactions
-      transactionsSheet.appendRow([
-        TextCellValue('Date'),
-        TextCellValue('Category'),
-        TextCellValue('Amount'),
-        TextCellValue('Type'),
-        TextCellValue('Note'),
-      ]);
-
-      // Add transaction data
-      for (var transaction in transactions) {
-        transactionsSheet.appendRow([
-          TextCellValue(DateFormat('yyyy-MM-dd').format(transaction.date)),
-          TextCellValue(transaction.category),
-          TextCellValue(transaction.amount.toString()),
-          TextCellValue(transaction.isExpense ? 'Expense' : 'Income'),
-          TextCellValue(transaction.note ?? ''),
-        ]);
-      }
-
-      // Add headers for budgets
-      budgetsSheet.appendRow([
-        TextCellValue('Category'),
-        TextCellValue('Amount'),
-        TextCellValue('Start Date'),
-        TextCellValue('End Date'),
-        TextCellValue('Has Surpassed'),
-      ]);
-
-      // Add budget data
-      for (var budget in budgets) {
-        budgetsSheet.appendRow([
-          TextCellValue(budget.category ?? 'Overall'),
-          TextCellValue(budget.amount.toString()),
-          TextCellValue(DateFormat('yyyy-MM-dd').format(budget.startDate)),
-          TextCellValue(DateFormat('yyyy-MM-dd').format(budget.endDate)),
-          TextCellValue(budget.hasSurpassed ? 'Yes' : 'No'),
-        ]);
-      }
-
-      // Auto-fit columns for transactions
-      transactionsSheet.setColumnWidth(0, 15.0); // Date
-      transactionsSheet.setColumnWidth(1, 20.0); // Category
-      transactionsSheet.setColumnWidth(2, 15.0); // Amount
-      transactionsSheet.setColumnWidth(3, 10.0); // Type
-      transactionsSheet.setColumnWidth(4, 30.0); // Note
-
-      // Auto-fit columns for budgets
-      budgetsSheet.setColumnWidth(0, 20.0); // Category
-      budgetsSheet.setColumnWidth(1, 15.0); // Amount
-      budgetsSheet.setColumnWidth(2, 15.0); // Start Date
-      budgetsSheet.setColumnWidth(3, 15.0); // End Date
-      budgetsSheet.setColumnWidth(4, 15.0); // Has Surpassed
-
-      // Get temporary directory
-      final directory = await getTemporaryDirectory();
-      final String fileName =
-          'expense_tracker_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
-      final String filePath = '${directory.path}/$fileName';
-
-      // Save file
-      final fileBytes = excel.encode();
-      if (fileBytes != null) {
-        File(filePath)
-          ..createSync(recursive: true)
-          ..writeAsBytesSync(fileBytes);
-
-        // Close loading dialog
-        Navigator.pop(context);
-
-        // Show success message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Excel file exported successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-
-        // Share file
-        await Share.shareXFiles(
-          [XFile(filePath)],
-          text: 'My Expense Tracker Export',
-        );
-      }
-    } catch (e) {
-      // Close loading dialog if it's showing
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-
-      // Show error message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error exporting data: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _importFromExcel() async {
-    // Show dialog to select import format
-    final selectedFormat = await showDialog<String>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Select Import Format'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.account_balance),
-                title: const Text('RBC Bank'),
-                subtitle: const Text('Import from RBC bank statement'),
-                onTap: () => Navigator.pop(context, 'RBC'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.table_chart),
-                title: const Text('Expense Tracker'),
-                subtitle: const Text('Import from Expense Tracker format'),
-                onTap: () => Navigator.pop(context, 'ExpenseTracker'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (selectedFormat == null) return;
-
-    // Navigate to import screen with selected format
-    if (!mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ImportScreen(
-            initialSource:
-                selectedFormat == 'RBC' ? 'RBC Bank' : 'Expense Tracker'),
-      ),
-    );
-
-    // Refresh data after import
-    await _loadData();
   }
 
   @override

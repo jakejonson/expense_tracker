@@ -74,29 +74,25 @@ class NotificationService {
   }
 
   Future<void> _checkRecurringTransactions() async {
-    try {
-      // Skip if we've checked in the last hour
-      final now = DateTime.now();
-      if (_lastCheckTime != null &&
-          now.difference(_lastCheckTime!) < const Duration(hours: 1)) {
-        return;
-      }
-
-      final createdTransactions =
-          await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
-
-      // Show notification for each created transaction
-      for (var transaction in createdTransactions) {
-        await _showNotification(
-          'Recurring Transaction Created',
-          '${transaction.isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category} has been created.',
-        );
-      }
-
-      _lastCheckTime = now;
-    } catch (e) {
-      print('Error checking recurring transactions: $e');
+    // Skip if we've checked in the last hour
+    final now = DateTime.now();
+    if (_lastCheckTime != null &&
+        now.difference(_lastCheckTime!) < const Duration(hours: 1)) {
+      return;
     }
+
+    final createdTransactions =
+        await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
+
+    // Show notification for each created transaction
+    for (var transaction in createdTransactions) {
+      await _showNotification(
+        'Recurring Transaction Created',
+        '${transaction.isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category} has been created.',
+      );
+    }
+
+    _lastCheckTime = now;
   }
 
   Future<void> _handleTransaction(Map<dynamic, dynamic> event) async {

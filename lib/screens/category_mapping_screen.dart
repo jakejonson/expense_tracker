@@ -77,85 +77,96 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
       appBar: AppBar(
         title: const Text('Category Mappings'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _keywordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => CategorySelectionDialog(
-                          isExpense: true,
-                          selectedCategory: _selectedCategory,
-                          onCategorySelected: (category) {
-                            setState(() {
-                              _selectedCategory = category;
-                            });
-                          },
-                        ),
-                      );
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Category',
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.arrow_drop_down),
-                      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage != null
+              ? Center(
+                  child: Text(_errorMessage!,
+                      style: const TextStyle(color: Colors.red)))
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
                       child: Row(
                         children: [
-                          if (_selectedCategory != null) ...[
-                            Icon(
-                              Constants.expenseCategoryIcons[_selectedCategory],
-                              color: Theme.of(context).colorScheme.primary,
+                          Expanded(
+                            child: TextField(
+                              controller: _keywordController,
+                              decoration: const InputDecoration(
+                                labelText: 'Description',
+                                border: OutlineInputBorder(),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                          ],
-                          Text(_selectedCategory ?? 'Select Category'),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => CategorySelectionDialog(
+                                    isExpense: true,
+                                    selectedCategory: _selectedCategory,
+                                    onCategorySelected: (category) {
+                                      setState(() {
+                                        _selectedCategory = category;
+                                      });
+                                    },
+                                  ),
+                                );
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'Category',
+                                  border: OutlineInputBorder(),
+                                  suffixIcon: Icon(Icons.arrow_drop_down),
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (_selectedCategory != null) ...[
+                                      Icon(
+                                        Constants.expenseCategoryIcons[
+                                            _selectedCategory],
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Text(
+                                        _selectedCategory ?? 'Select Category'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton(
+                            onPressed: _addMapping,
+                            child: const Text('Add'),
+                          ),
                         ],
                       ),
                     ),
-                  ),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: _mappings.length,
+                        itemBuilder: (context, index) {
+                          final mapping = _mappings[index];
+                          return ListTile(
+                            title: Text(mapping.description),
+                            subtitle: Text(mapping.category),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () =>
+                                  _deleteMapping(mapping.description),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _addMapping,
-                  child: const Text('Add'),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _mappings.length,
-              itemBuilder: (context, index) {
-                final mapping = _mappings[index];
-                return ListTile(
-                  title: Text(mapping.description),
-                  subtitle: Text(mapping.category),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _deleteMapping(mapping.description),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

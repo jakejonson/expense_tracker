@@ -291,6 +291,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<Transaction> _getFilteredTransactions() {
     return _transactions.where((transaction) {
       if (_selectedCategory != null &&
+          _selectedCategory!.isNotEmpty &&
           transaction.category != _selectedCategory) {
         return false;
       }
@@ -390,27 +391,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   'Sort by ${_sortBy} (${_sortAscending ? 'ascending' : 'descending'})',
               onPressed: _toggleSort,
             ),
-            if (_isSelectionMode) ...[
+            if (_isSelectionMode && _selectedTransactions.isNotEmpty) ...[
               IconButton(
                 icon: const Icon(Icons.edit),
-                onPressed: _selectedTransactions.isEmpty
-                    ? null
-                    : _batchEditTransactions,
+                onPressed: _batchEditTransactions,
               ),
               IconButton(
                 icon: const Icon(Icons.delete),
-                onPressed: _selectedTransactions.isEmpty
-                    ? null
-                    : _batchDeleteTransactions,
-              ),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () {
-                  setState(() {
-                    _isSelectionMode = false;
-                    _selectedTransactions.clear();
-                  });
-                },
+                onPressed: _batchDeleteTransactions,
               ),
             ],
           ],
@@ -617,14 +605,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
               }
             },
             child: Card(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
               child: InkWell(
                 onTap: _isSelectionMode
                     ? () => _toggleTransactionSelection(transaction.id!)
                     : null,
                 child: ListTile(
                   contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                  dense: true,
                   leading: _isSelectionMode
                       ? Checkbox(
                           value: _selectedTransactions.contains(transaction.id),
@@ -640,7 +629,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   .incomeCategoryIcons[transaction.category],
                           color:
                               transaction.isExpense ? Colors.red : Colors.green,
-                          size: 20,
+                          size: 18,
                         ),
                   title: Row(
                     children: [
@@ -675,7 +664,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       Text(
                         DateFormat.yMMMd().format(transaction.date),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              fontSize: 11,
+                              fontSize: 10,
                               color: Theme.of(context)
                                   .colorScheme
                                   .onSurface
@@ -687,7 +676,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   trailing: _isSelectionMode
                       ? null
                       : IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
+                          icon: const Icon(Icons.edit, size: 18),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () => _editTransaction(transaction),

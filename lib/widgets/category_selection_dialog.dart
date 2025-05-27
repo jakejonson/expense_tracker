@@ -16,6 +16,11 @@ class CategorySelectionDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final categories = [
+      'All',
+      ...(isExpense ? Constants.expenseCategories : Constants.incomeCategories)
+    ];
+    
     return Dialog(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -28,13 +33,11 @@ class CategorySelectionDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             CategoryGrid(
-              categories: isExpense
-                  ? Constants.expenseCategories
-                  : Constants.incomeCategories,
+              categories: categories,
               isExpense: isExpense,
               selectedCategory: selectedCategory,
               onCategorySelected: (category) {
-                onCategorySelected(category);
+                onCategorySelected(category == 'All' ? '' : category);
                 Navigator.pop(context);
               },
             ),

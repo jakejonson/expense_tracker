@@ -162,21 +162,17 @@ class RBCImportService {
 
   DateTime _parseDate(String dateStr) {
     // Handle different date formats
-    try {
-      // Try MM/DD/YYYY format
-      final parts = dateStr.split('/');
-      if (parts.length == 3) {
-        return DateTime(
-          int.parse(parts[2]),
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-        );
-      }
-      // Try YYYY-MM-DD format
-      return DateTime.parse(dateStr);
-    } catch (e) {
-      throw Exception('Invalid date format: $dateStr');
+    // Try MM/DD/YYYY format
+    final parts = dateStr.split('/');
+    if (parts.length == 3) {
+      return DateTime(
+        int.parse(parts[2]),
+        int.parse(parts[0]),
+        int.parse(parts[1]),
+      );
     }
+    // Try YYYY-MM-DD format
+    return DateTime.parse(dateStr);
   }
 
   String _formatNote(String description1, String description2) {
