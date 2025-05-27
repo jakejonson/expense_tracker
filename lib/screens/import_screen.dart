@@ -20,7 +20,7 @@ class ImportScreen extends StatefulWidget {
 class _ImportScreenState extends State<ImportScreen> {
   final DatabaseHelper _db = DatabaseHelper.instance;
   String? _selectedSource;
-  List<String> _importSources = ['Expense Tracker', 'RBC Bank'];
+  final List<String> _importSources = ['Expense Tracker', 'RBC Bank'];
   bool _isImporting = false;
   String? _errorMessage;
   int _importedCount = 0;
@@ -49,11 +49,11 @@ class _ImportScreenState extends State<ImportScreen> {
 
     try {
       final typeGroup = _selectedSource == 'RBC Bank'
-          ? XTypeGroup(
+          ? const XTypeGroup(
               label: 'CSV Files',
               extensions: ['csv'],
             )
-          : XTypeGroup(
+          : const XTypeGroup(
               label: 'Excel Files',
               extensions: ['xlsx', 'xls'],
             );
@@ -69,13 +69,6 @@ class _ImportScreenState extends State<ImportScreen> {
       }
 
       final filePath = file.path;
-      if (filePath == null) {
-        setState(() {
-          _isImporting = false;
-          _errorMessage = 'Invalid file path';
-        });
-        return;
-      }
 
       final fileObj = File(filePath);
       List<Transaction> importedTransactions = [];
@@ -159,7 +152,7 @@ class _ImportScreenState extends State<ImportScreen> {
 
   Future<void> _importRBCFile() async {
     try {
-      final typeGroup = XTypeGroup(
+      const typeGroup = XTypeGroup(
         label: 'CSV',
         extensions: ['csv'],
       );

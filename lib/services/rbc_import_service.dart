@@ -82,7 +82,7 @@ class RBCImportService {
 
         // Guess category based on description
         String category =
-            await _getCategoryForDescription(description1 + ' ' + description2);
+            await _getCategoryForDescription('$description1 $description2');
 
         final transaction = Transaction(
           amount: amount.abs(),
@@ -183,11 +183,13 @@ class RBCImportService {
 
   Future<String> _getCategoryForDescription(String desc) async {
     final mappings = await _db.getCategoryMappings();
+    final upperDesc = desc.toUpperCase();
+    
     for (final mapping in mappings) {
-      if (desc.contains(mapping.description)) {
+      if (upperDesc.contains(mapping.description.toUpperCase())) {
         return mapping.category;
       }
     }
-    return 'Uncategorized';
+    return 'Other';
   }
 }

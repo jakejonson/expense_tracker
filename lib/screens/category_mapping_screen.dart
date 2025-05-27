@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/models/category_mapping.dart';
 import 'package:expense_tracker/services/database_helper.dart';
+import 'package:expense_tracker/utils/constants.dart';
 
 class CategoryMappingScreen extends StatefulWidget {
   const CategoryMappingScreen({super.key});
@@ -16,7 +17,7 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
   String? _errorMessage;
 
   final _keywordController = TextEditingController();
-  final _categoryController = TextEditingController();
+  String? _selectedCategory;
 
   @override
   void initState() {
@@ -27,7 +28,6 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
   @override
   void dispose() {
     _keywordController.dispose();
-    _categoryController.dispose();
     super.dispose();
   }
 
@@ -47,18 +47,20 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
   }
 
   Future<void> _addMapping() async {
-    if (_keywordController.text.isEmpty || _categoryController.text.isEmpty) {
+    if (_keywordController.text.isEmpty || _selectedCategory == null) {
       return;
     }
 
     final keyword = _keywordController.text;
-    final category = _categoryController.text;
+    final category = _selectedCategory!;
 
     final mapping = CategoryMapping(description: keyword, category: category);
     await _db.addCategoryMapping(mapping);
 
     _keywordController.clear();
-    _categoryController.clear();
+    setState(() {
+      _selectedCategory = null;
+    });
     _loadMappings();
   }
 
@@ -90,12 +92,43 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: TextField(
-                    controller: _categoryController,
+                  child: DropdownButtonFormField<String>(
+                    value: _selectedCategory,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       border: OutlineInputBorder(),
                     ),
+                    items: [
+                      ...Constants.expenseCategories.map(
+                        (category) => DropdownMenuItem(
+                          value: category,
+                          child: Row(
+                            children: [
+                              Icon(Constants.expenseCategoryIcons[category]),
+                              const SizedBox(width: 8),
+                              Text(category),
+                            ],
+                          ),
+                        ),
+                      ),
+                      ...Constants.incomeCategories.map(
+                        (category) => DropdownMenuItem(
+                          value: category,
+                          child: Row(
+                            children: [
+                              Icon(Constants.incomeCategoryIcons[category]),
+                              const SizedBox(width: 8),
+                              Text(category),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: (String? value) {
+                      setState(() {
+                        _selectedCategory = value;
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(width: 16),

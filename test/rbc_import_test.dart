@@ -69,7 +69,7 @@ void main() {
       ));
 
       // Create test CSV content
-      final csvContent = '''
+      const csvContent = '''
 ACCOUNT TYPE,ACCOUNT NUMBER,TRANSACTION DATE,TRANSACTION TIME,DESCRIPTION 1,DESCRIPTION 2,CAD\$
 Chequing,123456789,01/01/2024,12:00:00,PAYROLL,Monthly Salary,1000.00
 ''';

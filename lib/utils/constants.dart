@@ -7,6 +7,7 @@ class Constants {
     'Car',
     'Eating Out',
     'Entertainment',
+    'Sports',
     'Shopping',
     'Transportation',
     'Utilities',
@@ -15,6 +16,7 @@ class Constants {
     'Tax',
     'Pet',
     'Saeid',
+    'Travel',
     'Other',
   ];
 
@@ -29,6 +31,7 @@ class Constants {
     'Groceries': Icons.shopping_basket,
     'Rent': Icons.home,
     'Car': Icons.directions_car,
+    'Sports': Icons.sports_gymnastics,
     'Eating Out': Icons.restaurant,
     'Entertainment': Icons.movie,
     'Shopping': Icons.shopping_bag,
