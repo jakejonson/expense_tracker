@@ -204,9 +204,9 @@ class _ImportScreenState extends State<ImportScreen> {
                           SizedBox(height: 8),
                           Text(
                             '• Select your RBC bank statement CSV file\n'
-                            '• Transactions will be automatically categorized\n'
-                            '• Payment transactions will be ignored\n'
-                            '• Transfers will be marked as transfers',
+                            '• Transactions will be automatically categorized based on their descriptions\n'
+                            '• Any uncategorized transactions will be in the "other" category\n'
+                            '• Transfers will be ignored\n',
                             style: TextStyle(fontSize: 14),
                           ),
                         ],
