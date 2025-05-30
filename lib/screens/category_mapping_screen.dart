@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:expense_tracker/models/category_mapping.dart';
 import 'package:expense_tracker/services/database_helper.dart';
 import 'package:expense_tracker/utils/constants.dart';
-import '../widgets/category_grid.dart';
 import '../widgets/category_selection_dialog.dart';
 
 class CategoryMappingScreen extends StatefulWidget {
@@ -134,7 +133,7 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
                                       const SizedBox(width: 8),
                                     ],
                                     Text(
-                                        _selectedCategory ?? 'Select Category'),
+                                        _selectedCategory ?? 'Cat.'),
                                   ],
                                 ),
                               ),

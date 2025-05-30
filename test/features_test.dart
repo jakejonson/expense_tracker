@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart' as sqflite;
-import '../lib/models/transaction.dart';
-import '../lib/models/category_mapping.dart';
-import '../lib/services/database_helper.dart';
+import 'package:expense_tracker/models/transaction.dart';
+import 'package:expense_tracker/models/category_mapping.dart';
+import 'package:expense_tracker/services/database_helper.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:mockito/mockito.dart';
 import 'package:mockito/annotations.dart';

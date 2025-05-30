@@ -658,7 +658,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       box.globalToLocal(details.globalPosition);
                   final double centerX = box.size.width / 2;
                   final double centerY = box.size.height / 2;
-                  final double radius = 100;
+                  const double radius = 100;
 
                   // Calculate angle and distance from center
                   final double dx = localPosition.dx - centerX;

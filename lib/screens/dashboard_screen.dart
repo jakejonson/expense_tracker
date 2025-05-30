@@ -947,10 +947,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
+        leading: IconButton(
+          icon: const Icon(Icons.batch_prediction),
+          onPressed: _navigateToCategoryManagement,
+          tooltip: 'Category Manager',
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.category),
-            onPressed: _navigateToCategoryManagement,
+            icon: const Icon(Icons.download),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ImportScreen()),
+              );
+            },
+            tooltip: 'Import Data',
+          ),
+          IconButton(
+            icon: const Icon(Icons.upload),
+            onPressed: _exportData,
+            tooltip: 'Export Data',
           ),
         ],
       ),
@@ -1028,5 +1044,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _amountController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  Future<void> _exportData() async {
+    try {
+      final transactions = await DatabaseHelper.instance.getTransactions();
+      final excel = Excel.createExcel();
+      final sheet = excel.sheets.values.first;
+
+      // Add headers
+      sheet.appendRow([
+        TextCellValue('Date'),
+        TextCellValue('Category'),
+        TextCellValue('Amount'),
+        TextCellValue('Type'),
+        TextCellValue('Note'),
+      ]);
+
+      // Add data
+      for (var transaction in transactions) {
+        sheet.appendRow([
+          TextCellValue(transaction.date.toString()),
+          TextCellValue(transaction.category),
+          TextCellValue(transaction.amount.toString()),
+          TextCellValue(transaction.isExpense ? 'Expense' : 'Income'),
+          TextCellValue(transaction.note ?? ''),
+        ]);
+      }
+
+      // Get the temporary directory
+      final directory = await getTemporaryDirectory();
+      final filePath = '${directory.path}/expense_tracker_export.xlsx';
+
+      // Save the file
+      final fileBytes = excel.encode();
+      if (fileBytes != null) {
+        final file = File(filePath);
+        await file.writeAsBytes(fileBytes);
+
+        // Share the file
+        await Share.shareXFiles(
+          [XFile(filePath)],
+          text: 'Expense Tracker Export',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error exporting data: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 } 

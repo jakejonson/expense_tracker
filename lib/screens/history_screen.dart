@@ -740,7 +740,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     child: Row(
                       children: [
-                        if (selectedCategory != null) ...[
+                        ...[
                           Icon(
                             isExpense
                                 ? Constants

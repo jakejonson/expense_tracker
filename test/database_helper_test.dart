@@ -86,7 +86,7 @@ void main() {
       final transaction2 = models.Transaction(
         amount: 200.0,
         category: 'Transport',
-        date: now.add(const Duration(days: 1)),
+        date: now.add(const Duration(days: -1)),
         isExpense: true,
       );
       final transaction3 = models.Transaction(
