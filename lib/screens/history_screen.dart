@@ -5,7 +5,6 @@ import '../utils/constants.dart';
 import 'package:intl/intl.dart';
 import '../widgets/month_selector.dart';
 import '../models/category_mapping.dart';
-import '../widgets/category_grid.dart';
 import '../widgets/category_selection_dialog.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -59,15 +58,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _selectedTransactions.clear();
       _isSelectionMode = false;
       _isLoading = false;
-    });
-  }
-
-  void _toggleSelectionMode() {
-    setState(() {
-      _isSelectionMode = !_isSelectionMode;
-      if (!_isSelectionMode) {
-        _selectedTransactions.clear();
-      }
     });
   }
 
@@ -376,6 +366,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Transaction History'),
+          leading: IconButton(
+            icon: const Icon(Icons.warning),
+            tooltip: 'Check for Invalid Transactions',
+            onPressed: _checkInvalidTransactions,
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.refresh),
@@ -887,6 +882,150 @@ class _HistoryScreenState extends State<HistoryScreen> {
       await DatabaseHelper.instance.checkAndUpdateBudgets();
       _loadTransactions();
     }
+  }
+
+  Future<void> _checkInvalidTransactions() async {
+    setState(() => _isLoading = true);
+
+    // Get all transactions
+    final allTransactions = await DatabaseHelper.instance.getAllTransactions();
+
+    // Check for invalid transactions
+    final invalidTransactions = allTransactions.where((transaction) {
+      // Check if category exists in Constants
+      if (transaction.isExpense) {
+        if (!Constants.expenseCategories.contains(transaction.category)) {
+          return true;
+        }
+      } else {
+        if (!Constants.incomeCategories.contains(transaction.category)) {
+          return true;
+        }
+      }
+
+      // Check if amount is valid
+      if (transaction.amount <= 0) {
+        return true;
+      }
+
+      // Check if date is valid
+      if (transaction.date.isAfter(DateTime.now())) {
+        return true;
+      }
+
+      return false;
+    }).toList();
+
+    setState(() => _isLoading = false);
+
+    if (invalidTransactions.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No invalid transactions found'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show dialog with invalid transactions
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Invalid Transactions'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: invalidTransactions.length,
+              itemBuilder: (context, index) {
+                final transaction = invalidTransactions[index];
+                return ListTile(
+                  title: Text(
+                    '${transaction.category} - ${NumberFormat.currency(symbol: '\$').format(transaction.amount)}',
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                          'Date: ${DateFormat.yMMMd().format(transaction.date)}'),
+                      if (transaction.note != null)
+                        Text('Note: ${transaction.note}'),
+                      Text(
+                        'Issues: ${_getInvalidTransactionIssues(transaction)}',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _editTransaction(transaction);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () async {
+                          await DatabaseHelper.instance
+                              .deleteTransaction(transaction.id!);
+                          _loadTransactions();
+                          if (mounted) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Transaction deleted'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  String _getInvalidTransactionIssues(Transaction transaction) {
+    final issues = <String>[];
+
+    if (transaction.isExpense) {
+      if (!Constants.expenseCategories.contains(transaction.category)) {
+        issues.add('Invalid expense category');
+      }
+    } else {
+      if (!Constants.incomeCategories.contains(transaction.category)) {
+        issues.add('Invalid income category');
+      }
+    }
+
+    if (transaction.amount <= 0) {
+      issues.add('Invalid amount');
+    }
+
+    if (transaction.date.isAfter(DateTime.now())) {
+      issues.add('Future date');
+    }
+
+    return issues.join(', ');
   }
 
   @override

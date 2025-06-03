@@ -17,6 +17,7 @@ class NotificationService {
   DateTime? _lastCheckTime;
 
   Future<void> initialize() async {
+    print('Initializing NotificationService...');
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
@@ -30,6 +31,10 @@ class NotificationService {
     );
 
     await _notifications.initialize(initSettings);
+    print('NotificationService initialized successfully');
+
+    // Start listening immediately after initialization
+    startListening();
   }
 
   Future<void> _showNotification(String title, String body) async {
@@ -55,37 +60,48 @@ class NotificationService {
   }
 
   void startListening() {
+    print('Starting NotificationService listener...');
     _subscription?.cancel();
     _subscription =
         _eventChannel.receiveBroadcastStream().listen((dynamic event) {
+      print('Received event from event channel: $event');
       if (event is Map) {
         _handleTransaction(event);
       }
     });
 
-    // Check for recurring transactions every 6 hours instead of every hour
+    // Check for recurring transactions every 6 hours
     _recurringCheckTimer?.cancel();
     _recurringCheckTimer = Timer.periodic(const Duration(hours: 6), (timer) {
+      print('Timer triggered - checking recurring transactions');
       _checkRecurringTransactions();
     });
 
-    // Also check when the service starts
+    // Perform initial check immediately
+    print('Performing initial recurring transaction check');
     _checkRecurringTransactions();
+    print('NotificationService listener started successfully');
   }
 
   Future<void> _checkRecurringTransactions() async {
+    print('Checking recurring transactions...');
     // Skip if we've checked in the last hour
     final now = DateTime.now();
     if (_lastCheckTime != null &&
         now.difference(_lastCheckTime!) < const Duration(hours: 1)) {
+      print('Skipping check - last check was less than an hour ago');
       return;
     }
 
     final createdTransactions =
         await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
+    
+    print('Found ${createdTransactions.length} transactions to create');
 
     // Show notification for each created transaction
     for (var transaction in createdTransactions) {
+      print(
+          'Creating transaction: ${transaction.amount} for ${transaction.category}');
       await _showNotification(
         'Recurring Transaction Created',
         '${transaction.isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category} has been created.',

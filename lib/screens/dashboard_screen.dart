@@ -51,6 +51,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _selectedCategory = Constants.expenseCategories.first;
     _loadData();
+    // Check for recurring transactions when dashboard loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkRecurringTransactions();
+    });
   }
 
   Future<void> _loadData() async {
@@ -98,11 +102,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadScheduledTransactions() async {
-    final scheduledTransactions =
+    print('Loading scheduled transactions...');
+    final transactions =
         await DatabaseHelper.instance.getScheduledTransactions();
+    print('Found ${transactions.length} scheduled transactions');
     setState(() {
-      _scheduledTransactions = scheduledTransactions;
+      _scheduledTransactions = transactions;
     });
+  }
+
+  Future<void> _checkRecurringTransactions() async {
+    print('Manually checking recurring transactions...');
+    final createdTransactions =
+        await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
+    print('Created ${createdTransactions.length} new transactions');
+
+    if (createdTransactions.isNotEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Created ${createdTransactions.length} new recurring transaction(s)'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    }
+
+    // Reload all data
+    await _loadData();
   }
 
   void _calculateSpending() {
@@ -208,7 +236,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (shouldCancel == true) {
       if (cancelAll) {
-        // Delete all transactions with the same category, amount, and expense type
+        // Delete all recurring transactions with the same category, amount, and expense type
         final db = await DatabaseHelper.instance.database;
         await db.delete(
           'transactions',
@@ -222,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         );
       } else {
-        // Delete single transaction
+        // Delete only the original recurring transaction
         await DatabaseHelper.instance.deleteTransaction(transaction.id!);
       }
 
@@ -665,7 +693,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     context: context,
                     initialDate: _selectedDate,
                     firstDate: DateTime(2000),
-                    lastDate: DateTime.now(),
+                    lastDate: _isRecurring ? DateTime(2100) : DateTime.now(),
                     builder: (context, child) {
                       return Theme(
                         data: Theme.of(context).copyWith(
@@ -741,33 +769,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       }
                     } on DuplicateTransactionException catch (e) {
                       if (mounted) {
-                        final shouldProceed = await showDialog<bool>(
+                        final shouldProceed = await showDialog<String>(
                           context: context,
                           builder: (context) => AlertDialog(
                             title: const Text('Duplicate Transaction'),
-                            content: Text(
-                              'A transaction with the same amount (${transaction.amount.toStringAsFixed(2)}) exists on ${DateFormat('MMM d, y').format(transaction.date)}. Do you want to add it anyway?',
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'A transaction with the same amount (${transaction.amount.toStringAsFixed(2)}) exists on ${DateFormat('MMM d, y').format(transaction.date)}.',
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Found ${e.duplicates.length} similar transaction${e.duplicates.length > 1 ? 's' : ''}:',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 8),
+                                ...e.duplicates.map((t) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Text(
+                                        '• ${t.category} - ${DateFormat.yMMMd().format(t.date)}${t.note != null ? ' (${t.note})' : ''}',
+                                      ),
+                                    )),
+                              ],
                             ),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.pop(context, false),
+                                onPressed: () =>
+                                    Navigator.pop(context, 'cancel'),
                                 child: const Text('Cancel'),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.pop(context, true),
+                                onPressed: () => Navigator.pop(context, 'edit'),
+                                child: const Text('Edit Original'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, 'add'),
                                 child: const Text('Add Anyway'),
                               ),
                             ],
                           ),
                         );
 
-                        if (shouldProceed == true) {
+                        if (shouldProceed == 'add') {
                           // Force insert the transaction
                           final db = await DatabaseHelper.instance.database;
                           await db.insert('transactions', transaction.toMap());
                           _amountController.clear();
                           _noteController.clear();
                           await _loadData();
+                        } else if (shouldProceed == 'edit' &&
+                            e.duplicates.isNotEmpty) {
+                          // Edit the first duplicate transaction
+                          final originalTransaction = e.duplicates.first;
+                          await _editTransaction(originalTransaction);
                         }
                       }
                     }
@@ -780,6 +837,207 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _editTransaction(Transaction transaction) async {
+    _amountController.text = transaction.amount.toString();
+    _noteController.text = transaction.note ?? '';
+    _selectedCategory = transaction.category;
+    _selectedDate = transaction.date;
+    _isExpense = transaction.isExpense;
+    _isRecurring = transaction.isRecurring == 1;
+    _selectedFrequency = transaction.frequency ?? 'weekly';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Transaction'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _amountController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => CategorySelectionDialog(
+                        isExpense: _isExpense,
+                        selectedCategory: _selectedCategory,
+                        onCategorySelected: (category) {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        },
+                      ),
+                    );
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isExpense
+                              ? Constants
+                                  .expenseCategoryIcons[_selectedCategory]
+                              : Constants
+                                  .incomeCategoryIcons[_selectedCategory],
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_selectedCategory),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: true,
+                      label: Text('Expense'),
+                      icon: Icon(Icons.remove),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      label: Text('Income'),
+                      icon: Icon(Icons.add),
+                    ),
+                  ],
+                  selected: {_isExpense},
+                  onSelectionChanged: (Set<bool> newSelection) {
+                    setState(() {
+                      _isExpense = newSelection.first;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  title: const Text('Date'),
+                  subtitle: Text(
+                    DateFormat.yMMMd().format(_selectedDate),
+                  ),
+                  trailing: const Icon(Icons.calendar_today),
+                  onTap: () async {
+                    final DateTime? picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _selectedDate = picked;
+                      });
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _noteController,
+                  decoration: const InputDecoration(
+                    labelText: 'Note (Optional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: const Text('Recurring Transaction'),
+                  value: _isRecurring,
+                  onChanged: (value) {
+                    setState(() {
+                      _isRecurring = value;
+                      if (!value) {
+                        _selectedFrequency = 'weekly';
+                      }
+                    });
+                  },
+                ),
+                if (_isRecurring) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: _selectedFrequency,
+                    decoration: const InputDecoration(
+                      labelText: 'Frequency',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'weekly',
+                        child: Text('Weekly'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'biweekly',
+                        child: Text('Bi-weekly'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'monthly',
+                        child: Text('Monthly'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'yearly',
+                        child: Text('Yearly'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _selectedFrequency = value;
+                        });
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_amountController.text.isNotEmpty &&
+                    double.tryParse(_amountController.text) != null) {
+                  Navigator.pop(context, true);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      final updatedTransaction = Transaction(
+        id: transaction.id,
+        amount: double.parse(_amountController.text),
+        category: _selectedCategory,
+        note: _noteController.text.isEmpty ? null : _noteController.text,
+        date: _selectedDate,
+        isExpense: _isExpense,
+        isRecurring: _isRecurring ? 1 : 0,
+        frequency: _isRecurring ? _selectedFrequency : null,
+      );
+
+      await DatabaseHelper.instance.updateTransaction(updatedTransaction);
+      await _loadData();
+    }
   }
 
   Widget _buildScheduledTransactions() {
@@ -809,8 +1067,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: _loadScheduledTransactions,
-                  tooltip: 'Refresh',
+                  onPressed: () async {
+                    // Show loading indicator
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Checking for new transactions...'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    }
+
+                    // Check for new recurring transactions
+                    await _checkRecurringTransactions();
+
+                    // Refresh the list
+                    await _loadScheduledTransactions();
+                  },
+                  tooltip: 'Refresh & Check',
                 ),
               ],
             ),

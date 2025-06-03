@@ -446,20 +446,34 @@ class DatabaseHelper {
   }
 
   DateTime _calculateNextDate(DateTime currentDate, String frequency) {
+    print(
+        'Calculating next date from: ${currentDate.toIso8601String()} with frequency: $frequency');
+    DateTime nextDate;
     switch (frequency) {
       case 'weekly':
-        return currentDate.add(const Duration(days: 7));
+        nextDate = currentDate.add(const Duration(days: 7));
+        break;
       case 'biweekly':
-        return currentDate.add(const Duration(days: 14));
+        nextDate = currentDate.add(const Duration(days: 14));
+        break;
       case 'monthly':
-        return DateTime(
-            currentDate.year, currentDate.month + 1, currentDate.day);
+        // Handle month overflow correctly
+        if (currentDate.month == 12) {
+          nextDate = DateTime(currentDate.year + 1, 1, currentDate.day);
+        } else {
+          nextDate = DateTime(
+              currentDate.year, currentDate.month + 1, currentDate.day);
+        }
+        break;
       case 'yearly':
-        return DateTime(
-            currentDate.year + 1, currentDate.month, currentDate.day);
+        nextDate =
+            DateTime(currentDate.year + 1, currentDate.month, currentDate.day);
+        break;
       default:
-        return currentDate;
+        nextDate = currentDate;
     }
+    print('Calculated next date: ${nextDate.toIso8601String()}');
+    return nextDate;
   }
 
   Future<List<Transaction>> getTransactionsForMonth(DateTime month) async {
@@ -620,6 +634,8 @@ class DatabaseHelper {
   Future<List<Transaction>> checkAndCreateRecurringTransactions() async {
     final db = await database;
     final now = DateTime.now();
+    print('=== Starting recurring transaction check ===');
+    print('Current time: ${now.toIso8601String()}');
     final List<Transaction> createdTransactions = [];
     
     // Get all recurring transactions that have a nextOccurrence in the past
@@ -629,39 +645,180 @@ class DatabaseHelper {
       whereArgs: [1, now.toIso8601String()],
     );
 
+    print('Found ${maps.length} recurring transactions due');
+    if (maps.isEmpty) {
+      print('No recurring transactions found that are due');
+      return [];
+    }
+
     for (var map in maps) {
+      print('\nProcessing transaction:');
+      print('ID: ${map['id']}');
+      print('Amount: ${map['amount']}');
+      print('Category: ${map['category']}');
+      print('Frequency: ${map['frequency']}');
+      print('Next Occurrence: ${map['nextOccurrence']}');
+      
       final transaction = Transaction.fromMap(map);
       if (transaction.frequency != null) {
-        // Create the next occurrence
-        final nextDate =
-            _calculateNextDate(transaction.date, transaction.frequency!);
-        
-        // Create new transaction
-        final nextTransaction = Map<String, dynamic>.from(transaction.toMap());
-        nextTransaction['date'] = nextDate.toIso8601String();
-        nextTransaction['originalTransactionId'] = transaction.id;
-        nextTransaction['nextOccurrence'] = nextDate.toIso8601String();
-        nextTransaction['id'] = null;
+        final nextOccurrence = DateTime.parse(map['nextOccurrence'] as String);
 
-        final id = await db.insert('transactions', nextTransaction);
-        createdTransactions.add(Transaction.fromMap({
-          ...nextTransaction,
-          'id': id,
-        }));
+        // Check if a transaction already exists for this nextOccurrence date
+        final existingTransactions = await db.query(
+          'transactions',
+          where: 'amount = ? AND category = ? AND date = ? AND isExpense = ?',
+          whereArgs: [
+            transaction.amount,
+            transaction.category,
+            nextOccurrence.toIso8601String(),
+            transaction.isExpense ? 1 : 0,
+          ],
+        );
+
+        if (existingTransactions.isEmpty) {
+          // Create new transaction for the nextOccurrence date
+          final nextTransaction =
+              Map<String, dynamic>.from(transaction.toMap());
+          nextTransaction['date'] = nextOccurrence.toIso8601String();
+          nextTransaction['originalTransactionId'] = transaction.id;
+          nextTransaction['id'] = null;
+          nextTransaction['isRecurring'] =
+              0; // The created transaction is not recurring
+
+          // Calculate the next occurrence date
+          final nextDate =
+              _calculateNextDate(nextOccurrence, transaction.frequency!);
+          nextTransaction['nextOccurrence'] = nextDate.toIso8601String();
+
+          try {
+            final id = await db.insert('transactions', nextTransaction);
+            print('Successfully created new transaction with ID: $id');
+            createdTransactions.add(Transaction.fromMap({
+              ...nextTransaction,
+              'id': id,
+            }));
+
+            // Update the original transaction's nextOccurrence
+            await db.update(
+              'transactions',
+              {'nextOccurrence': nextDate.toIso8601String()},
+              where: 'id = ?',
+              whereArgs: [transaction.id],
+            );
+            print(
+                'Updated original transaction with next occurrence: ${nextDate.toIso8601String()}');
+          } catch (e) {
+            print('Error creating new transaction: $e');
+          }
+        } else {
+          print(
+              'Transaction already exists for this date, updating next occurrence');
+          // Calculate and update the next occurrence date
+          final nextDate =
+              _calculateNextDate(nextOccurrence, transaction.frequency!);
+          await db.update(
+            'transactions',
+            {'nextOccurrence': nextDate.toIso8601String()},
+            where: 'id = ?',
+            whereArgs: [transaction.id],
+          );
+          print(
+              'Updated original transaction with next occurrence: ${nextDate.toIso8601String()}');
+        }
+      } else {
+        print('Transaction has no frequency set, skipping');
       }
     }
 
+    print('=== Completed recurring transaction check ===');
+    print('Created ${createdTransactions.length} new transactions');
     return createdTransactions;
   }
 
   Future<List<Transaction>> getScheduledTransactions() async {
     final db = await database;
+    final now = DateTime.now();
+
+    // Only get recurring transactions that:
+    // 1. Are marked as recurring
+    // 2. Have a nextOccurrence date in the future
+    // 3. Don't have a transaction created for that date yet
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
-      where: 'isRecurring = ? AND nextOccurrence IS NOT NULL',
-      whereArgs: [1],
+      where: 'isRecurring = ? AND nextOccurrence > ?',
+      whereArgs: [1, now.toIso8601String()],
       orderBy: 'nextOccurrence ASC',
     );
-    return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
+
+    // Filter out any transactions that already have an occurrence created for their nextOccurrence date
+    final List<Transaction> futureTransactions = [];
+    for (var map in maps) {
+      final transaction = Transaction.fromMap(map);
+      final nextOccurrence = DateTime.parse(map['nextOccurrence'] as String);
+
+      // Check if a transaction already exists for this nextOccurrence date
+      final existingTransactions = await db.query(
+        'transactions',
+        where: 'amount = ? AND category = ? AND date = ? AND isExpense = ?',
+        whereArgs: [
+          transaction.amount,
+          transaction.category,
+          nextOccurrence.toIso8601String(),
+          transaction.isExpense ? 1 : 0,
+        ],
+      );
+
+      // Only include if no transaction exists for this date
+      if (existingTransactions.isEmpty) {
+        futureTransactions.add(transaction);
+      }
+    }
+
+    return futureTransactions;
+  }
+
+  Future<void> cleanupDuplicateTransactions() async {
+    final db = await database;
+    print('=== Cleaning up duplicate transactions ===');
+
+    // Get all recurring transactions
+    final List<Map<String, dynamic>> recurringTransactions = await db.query(
+      'transactions',
+      where: 'isRecurring = ?',
+      whereArgs: [1],
+    );
+
+    // Group recurring transactions by amount, category, isExpense, and nextOccurrence
+    final Map<String, List<Map<String, dynamic>>> groupedTransactions = {};
+    for (var transaction in recurringTransactions) {
+      // Only group transactions that have the same nextOccurrence date
+      final key =
+          '${transaction['amount']}_${transaction['category']}_${transaction['isExpense']}_${transaction['nextOccurrence']}';
+      if (!groupedTransactions.containsKey(key)) {
+        groupedTransactions[key] = [];
+      }
+      groupedTransactions[key]!.add(transaction);
+    }
+
+    // Delete duplicates, keeping the one with the lowest ID
+    for (var group in groupedTransactions.values) {
+      if (group.length > 1) {
+        print(
+            'Found ${group.length} duplicate recurring transactions with same next occurrence date');
+        // Sort by ID to keep the oldest one
+        group.sort((a, b) => (a['id'] as int).compareTo(b['id'] as int));
+        // Delete all but the first one
+        for (var i = 1; i < group.length; i++) {
+          print(
+              'Deleting duplicate recurring transaction with ID: ${group[i]['id']}');
+          await db.delete(
+            'transactions',
+            where: 'id = ?',
+            whereArgs: [group[i]['id']],
+          );
+        }
+      }
+    }
+    print('=== Cleanup completed ===');
   }
 } 
