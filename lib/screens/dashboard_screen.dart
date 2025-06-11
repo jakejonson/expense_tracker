@@ -1054,6 +1054,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       groupedTransactions[key]!.add(transaction);
     }
 
+    // Get the last 20 transactions sorted by creation date (newest first)
+    final recentTransactions = _transactions.toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+    final last20Transactions = recentTransactions.take(20).toList();
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1064,7 +1069,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Scheduled Transactions',
+                  'Transactions',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 IconButton(
@@ -1091,127 +1096,281 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            if (_scheduledTransactions.isEmpty)
-              const Center(
-                child: Text('No scheduled transactions'),
-              )
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: groupedTransactions.length,
-                itemBuilder: (context, index) {
-                  final key = groupedTransactions.keys.elementAt(index);
-                  final transactions = groupedTransactions[key]!;
-                  final firstTransaction = transactions.first;
-
-                  // Sort transactions by next occurrence
-                  transactions.sort((a, b) => DateTime.parse(a.nextOccurrence!)
-                      .compareTo(DateTime.parse(b.nextOccurrence!)));
-
-                  return ExpansionTile(
-                    leading: Icon(
-                      firstTransaction.isExpense
-                          ? Constants
-                              .expenseCategoryIcons[firstTransaction.category]
-                          : Constants
-                              .incomeCategoryIcons[firstTransaction.category],
-                      color: firstTransaction.isExpense
-                          ? Colors.red
-                          : Colors.green,
-                    ),
-                    title: Text(
-                      '${firstTransaction.amount.toStringAsFixed(2)} - ${firstTransaction.category}',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+            DefaultTabController(
+              length: 2,
+              child: Column(
+                children: [
+                  TabBar(
+                    tabs: const [
+                      Tab(text: 'Scheduled'),
+                      Tab(text: 'Recent'),
+                    ],
+                    labelColor: Theme.of(context).colorScheme.primary,
+                    unselectedLabelColor: Colors.grey,
+                  ),
+                  SizedBox(
+                    height: 400, // Fixed height for the tab content
+                    child: TabBarView(
                       children: [
-                        Text(
-                          '${transactions.length} scheduled occurrence${transactions.length > 1 ? 's' : ''}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        if (firstTransaction.note != null &&
-                            firstTransaction.note!.isNotEmpty)
-                          Text(
-                            firstTransaction.note!,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey[600],
+                        // Scheduled Transactions Tab
+                        _scheduledTransactions.isEmpty
+                            ? const Center(
+                                child: Text('No scheduled transactions'),
+                              )
+                            : ListView.builder(
+                                itemCount: groupedTransactions.length,
+                                itemBuilder: (context, index) {
+                                  final key =
+                                      groupedTransactions.keys.elementAt(index);
+                                  final transactions =
+                                      groupedTransactions[key]!;
+                                  final firstTransaction = transactions.first;
+
+                                  // Sort transactions by next occurrence
+                                  transactions.sort((a, b) => DateTime.parse(
+                                          a.nextOccurrence!)
+                                      .compareTo(
+                                          DateTime.parse(b.nextOccurrence!)));
+
+                                  return ExpansionTile(
+                                    leading: Icon(
+                                      firstTransaction.isExpense
+                                          ? Constants.expenseCategoryIcons[
+                                              firstTransaction.category]
+                                          : Constants.incomeCategoryIcons[
+                                              firstTransaction.category],
+                                      color: firstTransaction.isExpense
+                                          ? Colors.red
+                                          : Colors.green,
                                     ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () =>
-                              _editScheduledTransaction(firstTransaction),
-                          tooltip: 'Edit All',
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () => _cancelScheduledTransaction(
-                              firstTransaction,
-                              cancelAll: true),
-                          tooltip: 'Cancel All',
-                        ),
-                      ],
-                    ),
-                    children: transactions.map((transaction) {
-                      return ListTile(
-                        title: Text(
-                          'Next: ${DateFormat.yMMMd().format(DateTime.parse(transaction.nextOccurrence!))}',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Frequency: ${transaction.frequency?.capitalize()}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            if (transaction.note != null &&
-                                transaction.note!.isNotEmpty)
-                              Text(
-                                transaction.note!,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey[600],
+                                    title: Text(
+                                      '${firstTransaction.amount.toStringAsFixed(2)} - ${firstTransaction.category}',
+                                      style:
+                                          Theme.of(context).textTheme.bodyLarge,
                                     ),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${transactions.length} scheduled occurrence${transactions.length > 1 ? 's' : ''}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                        if (firstTransaction.note != null &&
+                                            firstTransaction.note!.isNotEmpty)
+                                          Text(
+                                            firstTransaction.note!,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.grey[600],
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                      ],
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit),
+                                          onPressed: () =>
+                                              _editScheduledTransaction(
+                                                  firstTransaction),
+                                          tooltip: 'Edit All',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete),
+                                          onPressed: () =>
+                                              _cancelScheduledTransaction(
+                                                  firstTransaction,
+                                                  cancelAll: true),
+                                          tooltip: 'Cancel All',
+                                        ),
+                                      ],
+                                    ),
+                                    children: transactions.map((transaction) {
+                                      return ListTile(
+                                        title: Text(
+                                          'Next: ${DateFormat.yMMMd().format(DateTime.parse(transaction.nextOccurrence!))}',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium,
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Frequency: ${transaction.frequency?.capitalize()}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall,
+                                            ),
+                                            if (transaction.note != null &&
+                                                transaction.note!.isNotEmpty)
+                                              Text(
+                                                transaction.note!,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                      color: Colors.grey[600],
+                                                    ),
+                                              ),
+                                          ],
+                                        ),
+                                        trailing: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.edit,
+                                                  size: 20),
+                                              onPressed: () =>
+                                                  _editScheduledTransaction(
+                                                      transaction),
+                                              tooltip: 'Edit',
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.delete,
+                                                  size: 20),
+                                              onPressed: () =>
+                                                  _cancelScheduledTransaction(
+                                                      transaction),
+                                              tooltip: 'Cancel',
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  );
+                                },
                               ),
-                          ],
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () =>
-                                  _editScheduledTransaction(transaction),
-                              tooltip: 'Edit',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, size: 20),
-                              onPressed: () =>
-                                  _cancelScheduledTransaction(transaction),
-                              tooltip: 'Cancel',
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  );
-                },
+                        // Recent Transactions Tab
+                        last20Transactions.isEmpty
+                            ? const Center(
+                                child: Text('No recent transactions'),
+                              )
+                            : ListView.builder(
+                                itemCount: last20Transactions.length,
+                                itemBuilder: (context, index) {
+                                  final transaction = last20Transactions[index];
+                                  return ListTile(
+                                    leading: Icon(
+                                      transaction.isExpense
+                                          ? Constants.expenseCategoryIcons[
+                                              transaction.category]
+                                          : Constants.incomeCategoryIcons[
+                                              transaction.category],
+                                      color: transaction.isExpense
+                                          ? Colors.red
+                                          : Colors.green,
+                                    ),
+                                    title: Text(
+                                      '${transaction.amount.toStringAsFixed(2)} - ${transaction.category}',
+                                      style:
+                                          Theme.of(context).textTheme.bodyLarge,
+                                    ),
+                                    subtitle: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          DateFormat.yMMMd()
+                                              .format(transaction.date),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                        if (transaction.note != null &&
+                                            transaction.note!.isNotEmpty)
+                                          Text(
+                                            transaction.note!,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontStyle: FontStyle.italic,
+                                                  color: Colors.grey[600],
+                                                ),
+                                          ),
+                                      ],
+                                    ),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.edit),
+                                          onPressed: () =>
+                                              _editTransaction(transaction),
+                                          tooltip: 'Edit',
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete),
+                                          onPressed: () async {
+                                            final shouldDelete =
+                                                await showDialog<bool>(
+                                              context: context,
+                                              builder: (context) => AlertDialog(
+                                                title: const Text(
+                                                    'Delete Transaction'),
+                                                content: Text(
+                                                  'Are you sure you want to delete this ${transaction.isExpense ? "expense" : "income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category}?',
+                                                ),
+                                                actions: [
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                            context, false),
+                                                    child: const Text('Cancel'),
+                                                  ),
+                                                  TextButton(
+                                                    onPressed: () =>
+                                                        Navigator.pop(
+                                                            context, true),
+                                                    child: const Text('Delete'),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+
+                                            if (shouldDelete == true) {
+                                              await DatabaseHelper.instance
+                                                  .deleteTransaction(
+                                                      transaction.id!);
+                                              await _loadData();
+                                              if (mounted) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                        'Transaction deleted'),
+                                                    backgroundColor: Colors.red,
+                                                  ),
+                                                );
+                                              }
+                                            }
+                                          },
+                                          tooltip: 'Delete',
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
+            ),
           ],
         ),
       ),
