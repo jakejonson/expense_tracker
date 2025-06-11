@@ -202,7 +202,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         return FlSpot(entry.key.toDouble(), entry.value);
                       }).toList(),
                       isCurved: false,
-                      color: Theme.of(context).primaryColor,
+                      color: Colors.blue,
                       barWidth: 3,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: true),
@@ -212,6 +212,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     ),
                   ],
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipBgColor: Colors.blueGrey,
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          final month = DateFormat('MMM')
+                              .format(DateTime(2000, spot.x.toInt(), 1));
+                          return LineTooltipItem(
+                            '$month\n\$${spot.y.toStringAsFixed(0)}',
+                            const TextStyle(color: Colors.white),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -260,7 +276,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         getTitlesWidget: (value, meta) {
                           if (value.toInt() >= 1 && value.toInt() <= 31) {
                             return Text(
-                              value.toInt().toString(),
+                              value.toInt().toStringAsFixed(0),
                               style: const TextStyle(fontSize: 10),
                             );
                           }
@@ -280,7 +296,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         return FlSpot(entry.key.toDouble(), entry.value);
                       }).toList(),
                       isCurved: false,
-                      color: Theme.of(context).primaryColor,
+                      color: Colors.blue,
                       barWidth: 3,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: true),
@@ -290,6 +306,20 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       ),
                     ),
                   ],
+                  lineTouchData: LineTouchData(
+                    enabled: true,
+                    touchTooltipData: LineTouchTooltipData(
+                      tooltipBgColor: Colors.blueGrey,
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          return LineTooltipItem(
+                            'Day ${spot.x.toInt()}\n\$${spot.y.toStringAsFixed(0)}',
+                            const TextStyle(color: Colors.white),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
                 ),
               ),
             ),
