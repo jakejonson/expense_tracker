@@ -21,6 +21,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Map<String, double> _categorySpending = {};
   Map<String, double> _categoryIncome = {};
   Map<int, double> _monthlySpending = {};
+  Map<int, double> _monthlyIncome = {};
   Map<int, double> _dailySpending = {};
   List<Transaction> _transactions = [];
 
@@ -66,10 +67,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final Map<String, double> income = {};
     final Map<int, double> dailySpending = {};
     final Map<int, double> monthlySpending = {};
+    final Map<int, double> monthlyIncome = {};
 
-    // Calculate monthly spending for the year
+    // Calculate monthly spending and income for the year
     for (var i = 1; i <= 12; i++) {
       monthlySpending[i] = 0;
+      monthlyIncome[i] = 0;
     }
 
     // Get all transactions for the year to calculate monthly trends
@@ -79,10 +82,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
         .getTransactionsByDateRange(yearStart, yearEnd);
 
     for (var transaction in yearlyTransactions) {
+      final month = transaction.date.month;
       if (transaction.isExpense) {
-        final month = transaction.date.month;
         monthlySpending[month] =
             (monthlySpending[month] ?? 0) + transaction.amount;
+      } else {
+        monthlyIncome[month] = (monthlyIncome[month] ?? 0) + transaction.amount;
       }
     }
 
@@ -110,6 +115,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _categorySpending = spending;
       _categoryIncome = income;
       _monthlySpending = monthlySpending;
+      _monthlyIncome = monthlyIncome;
       _dailySpending = dailySpending;
     });
   }
@@ -143,7 +149,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
   }
 
   Widget _buildYearlyTrendChart() {
-    final monthlyData = _monthlySpending.entries.toList()
+    final monthlySpendingData = _monthlySpending.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final monthlyIncomeData = _monthlyIncome.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
 
     return Card(
@@ -153,7 +161,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Yearly Spending Trend',
+              'Yearly Financial Trend',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
@@ -197,18 +205,34 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                   borderData: FlBorderData(show: true),
                   lineBarsData: [
+                    // Spending line
                     LineChartBarData(
-                      spots: monthlyData.map((entry) {
+                      spots: monthlySpendingData.map((entry) {
                         return FlSpot(entry.key.toDouble(), entry.value);
                       }).toList(),
                       isCurved: false,
-                      color: Colors.blue,
+                      color: Colors.red,
                       barWidth: 3,
                       isStrokeCapRound: true,
                       dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
-                        color: Theme.of(context).primaryColor.withAlpha(51),
+                        color: Colors.red.withAlpha(51),
+                      ),
+                    ),
+                    // Income line
+                    LineChartBarData(
+                      spots: monthlyIncomeData.map((entry) {
+                        return FlSpot(entry.key.toDouble(), entry.value);
+                      }).toList(),
+                      isCurved: false,
+                      color: Colors.green,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: const FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.green.withAlpha(51),
                       ),
                     ),
                   ],
@@ -218,11 +242,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
                       tooltipBgColor: Colors.blueGrey,
                       getTooltipItems: (touchedSpots) {
                         return touchedSpots.map((spot) {
-                          final month = DateFormat('MMM')
-                              .format(DateTime(2000, spot.x.toInt(), 1));
+                          final isIncome = spot.barIndex == 1;
                           return LineTooltipItem(
-                            '$month\n\$${spot.y.toStringAsFixed(0)}',
-                            const TextStyle(color: Colors.white),
+                            '${isIncome ? "Income" : "Spending"}: \$${spot.y.toStringAsFixed(0)}',
+                            const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           );
                         }).toList();
                       },
@@ -230,6 +256,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendItem('Spending', Colors.red),
+                const SizedBox(width: 16),
+                _buildLegendItem('Income', Colors.green),
+              ],
             ),
           ],
         ),
