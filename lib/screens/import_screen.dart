@@ -4,6 +4,8 @@ import 'package:excel/excel.dart';
 import 'dart:io';
 import 'package:expense_tracker/services/database_helper.dart';
 import 'package:expense_tracker/services/rbc_import_service.dart';
+import 'package:expense_tracker/services/bmo_import_service.dart';
+import 'package:expense_tracker/services/td_import_service.dart';
 import 'package:expense_tracker/models/transaction.dart';
 import 'package:expense_tracker/screens/category_mapping_screen.dart';
 
@@ -19,12 +21,15 @@ class ImportScreen extends StatefulWidget {
 class _ImportScreenState extends State<ImportScreen> {
   final DatabaseHelper _db = DatabaseHelper.instance;
   String? _selectedSource;
-  final List<String> _importSources = ['Expense Tracker', 'RBC Bank'];
+  final List<String> _importSources = [
+    'Expense Tracker',
+    'RBC Bank',
+    'BMO Bank',
+    'TD Bank'
+  ];
   bool _isImporting = false;
   String? _errorMessage;
   int _importedCount = 0;
-  final RBCImportService _rbcImportService =
-      RBCImportService(DatabaseHelper.instance);
 
   @override
   void initState() {
@@ -47,7 +52,9 @@ class _ImportScreenState extends State<ImportScreen> {
     });
 
     try {
-      final typeGroup = _selectedSource == 'RBC Bank'
+      final typeGroup = _selectedSource == 'RBC Bank' ||
+              _selectedSource == 'BMO Bank' ||
+              _selectedSource == 'TD Bank'
           ? const XTypeGroup(
               label: 'CSV Files',
               extensions: ['csv'],
@@ -58,11 +65,9 @@ class _ImportScreenState extends State<ImportScreen> {
             );
 
       final file = await openFile(acceptedTypeGroups: [typeGroup]);
-
       if (file == null) {
         setState(() {
           _isImporting = false;
-          _errorMessage = 'No file selected';
         });
         return;
       }
@@ -73,7 +78,8 @@ class _ImportScreenState extends State<ImportScreen> {
       List<Transaction> importedTransactions = [];
 
       if (_selectedSource == 'RBC Bank') {
-        final result = await _rbcImportService.importFromCSV(file);
+        final rbcService = RBCImportService(_db);
+        final result = await rbcService.importFromCSV(file);
 
         if (!mounted) return;
 
@@ -90,7 +96,33 @@ class _ImportScreenState extends State<ImportScreen> {
         );
 
         setState(() {
-          _isImporting = false;
+          _importedCount = result.processedCount;
+        });
+      } else if (_selectedSource == 'BMO Bank') {
+        final bmoService = BMOImportService(_db);
+        final result = await bmoService.importFromCSV(file);
+        setState(() {
+          _importedCount = result.processedCount;
+        });
+      } else if (_selectedSource == 'TD Bank') {
+        final tdService = TDImportService(_db);
+        final result = await tdService.importFromCSV(file);
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Import completed:\n'
+              '✓ ${result.processedCount} transactions processed\n'
+              '⚠ ${result.skippedCount} transactions skipped\n'
+              '✗ ${result.errorCount} errors',
+            ),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+
+        setState(() {
           _importedCount = result.processedCount;
         });
       } else {
@@ -134,7 +166,6 @@ class _ImportScreenState extends State<ImportScreen> {
       }
 
       setState(() {
-        _isImporting = false;
         _importedCount = importedTransactions.length;
       });
 
@@ -148,8 +179,11 @@ class _ImportScreenState extends State<ImportScreen> {
       }
     } catch (e) {
       setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      setState(() {
         _isImporting = false;
-        _errorMessage = 'Error importing file: ${e.toString()}';
       });
     }
   }
@@ -207,6 +241,92 @@ class _ImportScreenState extends State<ImportScreen> {
                             '• Transactions will be automatically categorized based on their descriptions\n'
                             '• Any uncategorized transactions will be in the "other" category\n'
                             '• Transfers will be ignored\n',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CategoryMappingScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.category),
+                    label: const Text('Manage Category Mappings'),
+                  ),
+                ],
+              ),
+            if (_selectedSource == 'BMO Bank')
+              Column(
+                children: [
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'BMO Bank Import',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            '• Select your BMO bank statement CSV file\n'
+                            '• Transactions will be automatically categorized based on their descriptions\n'
+                            '• Any uncategorized transactions will be in the "other" category\n'
+                            '• Transfers and Interac payments will be ignored\n',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CategoryMappingScreen(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.category),
+                    label: const Text('Manage Category Mappings'),
+                  ),
+                ],
+              ),
+            if (_selectedSource == 'TD Bank')
+              Column(
+                children: [
+                  const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TD Bank Import',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            '• Select your TD bank statement CSV file\n'
+                            '• Transactions will be automatically categorized based on their descriptions\n'
+                            '• Any uncategorized transactions will be in the "other" category\n'
+                            '• Transfers and TD Easy Transfer payments will be ignored\n',
                             style: TextStyle(fontSize: 14),
                           ),
                         ],
