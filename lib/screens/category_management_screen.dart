@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../services/database_helper.dart';
+import '../widgets/app_drawer.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:excel/excel.dart';
+import 'package:file_selector/file_selector.dart';
+import 'dart:io';
 
 class CategoryManagementScreen extends StatefulWidget {
   const CategoryManagementScreen({super.key});
@@ -185,7 +191,68 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage Categories'),
+        title: const Text('Category Management'),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
+        ),
+      ),
+      drawer: AppDrawer(
+        onExport: () async {
+          try {
+            final transactions =
+                await DatabaseHelper.instance.getTransactions();
+            final excel = Excel.createExcel();
+            final sheet = excel.sheets.values.first;
+
+            // Add headers
+            sheet.appendRow([
+              TextCellValue('Date'),
+              TextCellValue('Category'),
+              TextCellValue('Amount'),
+              TextCellValue('Type'),
+              TextCellValue('Note'),
+            ]);
+
+            // Add data
+            for (var transaction in transactions) {
+              sheet.appendRow([
+                TextCellValue(transaction.date.toString()),
+                TextCellValue(transaction.category),
+                TextCellValue(transaction.amount.toString()),
+                TextCellValue(transaction.isExpense ? 'Expense' : 'Income'),
+                TextCellValue(transaction.note ?? ''),
+              ]);
+            }
+
+            // Get the temporary directory
+            final directory = await getTemporaryDirectory();
+            final filePath = '${directory.path}/expense_tracker_export.xlsx';
+
+            // Save the file
+            final fileBytes = excel.encode();
+            if (fileBytes != null) {
+              final file = File(filePath);
+              await file.writeAsBytes(fileBytes);
+
+              // Share the file
+              await Share.shareXFiles([XFile(filePath)]);
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error exporting data: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
       ),
       body: Column(
         children: [

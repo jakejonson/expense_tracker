@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import 'import_screen.dart';
 import '../widgets/category_grid.dart';
 import '../widgets/category_selection_dialog.dart';
+import '../widgets/app_drawer.dart';
 
 extension StringExtension on String {
   String capitalize() {
@@ -1382,10 +1383,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
-        leading: IconButton(
-          icon: const Icon(Icons.batch_prediction),
-          onPressed: _navigateToCategoryManagement,
-          tooltip: 'Category Manager',
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
         ),
         actions: [
           IconButton(
@@ -1404,6 +1408,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             tooltip: 'Export Data',
           ),
         ],
+      ),
+      drawer: AppDrawer(
+        onExport: _exportData,
       ),
       body: Column(
         children: [

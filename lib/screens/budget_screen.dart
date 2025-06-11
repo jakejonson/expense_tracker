@@ -6,6 +6,12 @@ import 'package:intl/intl.dart';
 import 'budget_details_screen.dart';
 import '../widgets/month_selector.dart';
 import '../widgets/category_selection_dialog.dart';
+import '../widgets/app_drawer.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:excel/excel.dart' as excel;
+import 'package:path_provider/path_provider.dart';
+import 'package:file_selector/file_selector.dart';
+import 'dart:io';
 
 class BudgetScreen extends StatefulWidget {
   const BudgetScreen({super.key});
@@ -18,6 +24,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
   List<Budget> _budgets = [];
   Map<String, double> _categorySpending = {};
   DateTime _selectedMonth = DateTime.now();
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -34,6 +41,7 @@ class _BudgetScreenState extends State<BudgetScreen> {
     setState(() {
       _budgets = budgets;
       _categorySpending = spending;
+      _isLoading = false;
     });
   }
 
@@ -568,7 +576,15 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Budgets'),
+        title: const Text('Budget'),
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.copy),
@@ -577,7 +593,63 @@ class _BudgetScreenState extends State<BudgetScreen> {
           ),
         ],
       ),
-      body: Column(
+      drawer: AppDrawer(
+        onExport: () async {
+          try {
+            final transactions =
+                await DatabaseHelper.instance.getTransactions();
+            final excelFile = excel.Excel.createExcel();
+            final sheet = excelFile.sheets.values.first;
+
+            // Add headers
+            sheet.appendRow([
+              excel.TextCellValue('Date'),
+              excel.TextCellValue('Category'),
+              excel.TextCellValue('Amount'),
+              excel.TextCellValue('Type'),
+              excel.TextCellValue('Note'),
+            ]);
+
+            // Add data
+            for (var transaction in transactions) {
+              sheet.appendRow([
+                excel.TextCellValue(transaction.date.toString()),
+                excel.TextCellValue(transaction.category),
+                excel.TextCellValue(transaction.amount.toString()),
+                excel.TextCellValue(
+                    transaction.isExpense ? 'Expense' : 'Income'),
+                excel.TextCellValue(transaction.note ?? ''),
+              ]);
+            }
+
+            // Get the temporary directory
+            final directory = await getTemporaryDirectory();
+            final filePath = '${directory.path}/expense_tracker_export.xlsx';
+
+            // Save the file
+            final fileBytes = excelFile.encode();
+            if (fileBytes != null) {
+              final file = File(filePath);
+              await file.writeAsBytes(fileBytes);
+
+              // Share the file
+              await Share.shareXFiles([XFile(filePath)]);
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error exporting data: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        },
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           MonthSelector(
             selectedMonth: _selectedMonth,

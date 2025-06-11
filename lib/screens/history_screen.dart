@@ -6,6 +6,12 @@ import 'package:intl/intl.dart';
 import '../widgets/month_selector.dart';
 import '../models/category_mapping.dart';
 import '../widgets/category_selection_dialog.dart';
+import '../widgets/app_drawer.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:excel/excel.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_selector/file_selector.dart';
+import 'dart:io';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -366,10 +372,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Transaction History'),
-          leading: IconButton(
-            icon: const Icon(Icons.warning),
-            tooltip: 'Check for Invalid Transactions',
-            onPressed: _checkInvalidTransactions,
+          leading: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () {
+                Scaffold.of(context).openDrawer();
+              },
+            ),
           ),
           actions: [
             IconButton(
@@ -397,6 +406,59 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ],
           ],
+        ),
+        drawer: AppDrawer(
+          onExport: () async {
+            try {
+              final transactions =
+                  await DatabaseHelper.instance.getTransactions();
+              final excel = Excel.createExcel();
+              final sheet = excel.sheets.values.first;
+
+              // Add headers
+              sheet.appendRow([
+                TextCellValue('Date'),
+                TextCellValue('Category'),
+                TextCellValue('Amount'),
+                TextCellValue('Type'),
+                TextCellValue('Note'),
+              ]);
+
+              // Add data
+              for (var transaction in transactions) {
+                sheet.appendRow([
+                  TextCellValue(transaction.date.toString()),
+                  TextCellValue(transaction.category),
+                  TextCellValue(transaction.amount.toString()),
+                  TextCellValue(transaction.isExpense ? 'Expense' : 'Income'),
+                  TextCellValue(transaction.note ?? ''),
+                ]);
+              }
+
+              // Get the temporary directory
+              final directory = await getTemporaryDirectory();
+              final filePath = '${directory.path}/expense_tracker_export.xlsx';
+
+              // Save the file
+              final fileBytes = excel.encode();
+              if (fileBytes != null) {
+                final file = File(filePath);
+                await file.writeAsBytes(fileBytes);
+
+                // Share the file
+                await Share.shareXFiles([XFile(filePath)]);
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error exporting data: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+          },
         ),
         body: Column(
           children: [
