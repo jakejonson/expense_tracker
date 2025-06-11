@@ -52,9 +52,12 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
       now,
     );
 
-    // Filter transactions for this category
+    // Filter transactions for this category or all expenses for overall budget
     final categoryTransactions = transactions
-        .where((t) => t.isExpense && t.category == widget.budget.category)
+        .where((t) =>
+            t.isExpense &&
+            (widget.budget.category == null ||
+                t.category == widget.budget.category))
         .toList();
 
     // Group transactions by month
@@ -181,10 +184,11 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
                         touchTooltipData: BarTouchTooltipData(
                           tooltipBgColor: Colors.blueGrey,
                           getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                            final data = _historicalData[groupIndex];
                             return BarTooltipItem(
-                              '${_historicalData[groupIndex]['month']}\n'
-                              'Spent: \$${rod.toY.toStringAsFixed(2)}\n'
-                              'Budget: \$${widget.budget.amount.toStringAsFixed(2)}',
+                              '${data['month']}\n'
+                              'Spent: \$${data['spent'].toStringAsFixed(2)}\n'
+                              'Budget: \$${data['budget'].toStringAsFixed(2)}',
                               const TextStyle(color: Colors.white),
                             );
                           },
@@ -206,7 +210,8 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
                                     child: Text(
                                       _historicalData[value.toInt()]['month'],
                                       style: const TextStyle(
-                                        color: Colors.black,
+                                        color:
+                                            Color.fromARGB(255, 255, 255, 255),
                                         fontSize: 10,
                                       ),
                                       textAlign: TextAlign.center,
@@ -226,7 +231,7 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
                               return Text(
                                 '\$${value.toInt()}',
                                 style: const TextStyle(
-                                  color: Colors.black,
+                                  color: Color.fromARGB(255, 255, 255, 255),
                                   fontSize: 12,
                                 ),
                               );
@@ -305,8 +310,10 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
                             getTooltipItems: (touchedSpots) {
                               return touchedSpots.map((spot) {
                                 final index = spot.x.toInt();
+                                final data = _historicalData[index];
                                 return LineTooltipItem(
-                                  'Budget: \$${_historicalData[index]['budget'].toStringAsFixed(2)}',
+                                  'Spent: \$${data['spent'].toStringAsFixed(0)}\n'
+                                  'Budget: \$${data['budget'].toStringAsFixed(0)}',
                                   const TextStyle(color: Colors.white),
                                 );
                               }).toList();

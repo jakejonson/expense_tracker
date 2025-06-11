@@ -134,9 +134,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _calculateSpending() {
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+    final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endOfMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
 
     _totalSpent = _transactions
         .where((t) =>
@@ -163,9 +163,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _checkBudgetSurpassed(double amount) async {
     final budgets = await DatabaseHelper.instance.getBudgets();
-    final now = DateTime.now();
-    final startOfMonth = DateTime(now.year, now.month, 1);
-    final endOfMonth = DateTime(now.year, now.month + 1, 0);
+    final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final endOfMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
 
     for (var budget in budgets) {
       if (budget.startDate.isBefore(endOfMonth) &&
@@ -416,8 +416,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final color = percentage <= 50
         ? Colors.green
         : percentage <= 80
-            ? Colors.orange
-            : Colors.red;
+            ? Colors.yellow
+            : percentage <= 100
+                ? Colors.orange
+                : Colors.red;
 
     return Card(
       child: Padding(
@@ -444,7 +446,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: Colors.grey[800],
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withAlpha(51),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
