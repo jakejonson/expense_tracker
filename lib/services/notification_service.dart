@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest.dart' as tz;
 import '../models/transaction.dart';
 import 'database_helper.dart';
 
@@ -18,6 +20,9 @@ class NotificationService {
 
   Future<void> initialize() async {
     print('Initializing NotificationService...');
+    // Initialize timezone data
+    tz.initializeTimeZones();
+
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
@@ -30,22 +35,38 @@ class NotificationService {
       iOS: iosSettings,
     );
 
-    await _notifications.initialize(initSettings);
+    await _notifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
     print('NotificationService initialized successfully');
 
     // Start listening immediately after initialization
     startListening();
   }
 
-  Future<void> _showNotification(String title, String body) async {
+  void _onNotificationTapped(NotificationResponse response) {
+    // Handle notification tap - could navigate to transaction details
+    print('Notification tapped: ${response.payload}');
+  }
+
+  Future<void> _showNotification(String title, String body,
+      {String? payload}) async {
     const androidDetails = AndroidNotificationDetails(
       'recurring_transactions',
       'Recurring Transactions',
       channelDescription: 'Notifications for recurring transactions',
       importance: Importance.high,
       priority: Priority.high,
+      enableLights: true,
+      enableVibration: true,
+      playSound: true,
     );
-    const iosDetails = DarwinNotificationDetails();
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
     const details = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
@@ -56,6 +77,40 @@ class NotificationService {
       title,
       body,
       details,
+      payload: payload,
+    );
+  }
+
+  Future<void> scheduleNotification(
+      Transaction transaction, DateTime scheduledDate) async {
+    const androidDetails = AndroidNotificationDetails(
+      'scheduled_transactions',
+      'Scheduled Transactions',
+      channelDescription: 'Notifications for scheduled transactions',
+      importance: Importance.high,
+      priority: Priority.high,
+      enableLights: true,
+      enableVibration: true,
+      playSound: true,
+    );
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.zonedSchedule(
+      transaction.id ?? DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      'Upcoming Transaction',
+      '${transaction.isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category} is scheduled for ${scheduledDate.toString().split(' ')[0]}',
+      tz.TZDateTime.from(scheduledDate, tz.local),
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: transaction.id?.toString(),
     );
   }
 
@@ -105,7 +160,20 @@ class NotificationService {
       await _showNotification(
         'Recurring Transaction Created',
         '${transaction.isExpense ? "Expense" : "Income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category} has been created.',
+        payload: transaction.id?.toString(),
       );
+    }
+
+    // Schedule notifications for upcoming recurring transactions
+    final scheduledTransactions =
+        await DatabaseHelper.instance.getScheduledTransactions();
+    for (var transaction in scheduledTransactions) {
+      if (transaction.nextOccurrence != null) {
+        final nextDate = DateTime.parse(transaction.nextOccurrence!);
+        if (nextDate.isAfter(now)) {
+          await scheduleNotification(transaction, nextDate);
+        }
+      }
     }
 
     _lastCheckTime = now;

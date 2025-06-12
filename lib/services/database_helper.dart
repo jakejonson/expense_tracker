@@ -794,6 +794,15 @@ class DatabaseHelper {
       }
     }
 
+    // Sort by next occurrence date
+    futureTransactions.sort((a, b) {
+      if (a.nextOccurrence == null && b.nextOccurrence == null) return 0;
+      if (a.nextOccurrence == null) return 1;
+      if (b.nextOccurrence == null) return -1;
+      return DateTime.parse(a.nextOccurrence!)
+          .compareTo(DateTime.parse(b.nextOccurrence!));
+    });
+
     return futureTransactions;
   }
 
