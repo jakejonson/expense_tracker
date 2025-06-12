@@ -344,6 +344,29 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
       );
     }
 
+    // Group transactions by month
+    final Map<String, List<Transaction>> transactionsByMonth = {};
+    for (var transaction in _transactions) {
+      final monthKey = DateFormat('MMMM yyyy').format(transaction.date);
+      if (!transactionsByMonth.containsKey(monthKey)) {
+        transactionsByMonth[monthKey] = [];
+      }
+      transactionsByMonth[monthKey]!.add(transaction);
+    }
+
+    // Sort months in descending order (most recent first)
+    final sortedMonths = transactionsByMonth.keys.toList()
+      ..sort((a, b) {
+        final dateA = DateFormat('MMMM yyyy').parse(a);
+        final dateB = DateFormat('MMMM yyyy').parse(b);
+        return dateB.compareTo(dateA);
+      });
+
+    // Sort transactions within each month by date (most recent first)
+    for (var month in transactionsByMonth.keys) {
+      transactionsByMonth[month]!.sort((a, b) => b.date.compareTo(a.date));
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -355,34 +378,61 @@ class _BudgetDetailsScreenState extends State<BudgetDetailsScreen> {
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: _transactions.length,
-          itemBuilder: (context, index) {
-            final transaction = _transactions[index];
-            return ListTile(
-              title: Text(transaction.category),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+          itemCount: sortedMonths.length,
+          itemBuilder: (context, monthIndex) {
+            final month = sortedMonths[monthIndex];
+            final monthTransactions = transactionsByMonth[month]!;
+            final totalAmount = monthTransactions.fold<double>(
+                0, (sum, t) => sum + (t.isExpense ? -t.amount : t.amount));
+
+            return ExpansionTile(
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    DateFormat('MMM d, yyyy').format(transaction.date),
+                    month,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
-                  if (transaction.note != null && transaction.note!.isNotEmpty)
-                    Text(
-                      transaction.note!,
-                      style: const TextStyle(
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey,
-                      ),
+                  Text(
+                    NumberFormat.currency(symbol: '\$').format(totalAmount),
+                    style: TextStyle(
+                      color: totalAmount >= 0 ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
                 ],
               ),
-              trailing: Text(
-                '\$${transaction.amount.toStringAsFixed(2)}',
-                style: TextStyle(
-                  color: transaction.isExpense ? Colors.red : Colors.green,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              children: monthTransactions.map((transaction) {
+                return ListTile(
+                  title: Text(transaction.category),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat('MMM d, yyyy').format(transaction.date),
+                      ),
+                      if (transaction.note != null &&
+                          transaction.note!.isNotEmpty)
+                        Text(
+                          transaction.note!,
+                          style: const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
+                          ),
+                        ),
+                    ],
+                  ),
+                  trailing: Text(
+                    '\$${transaction.amount.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: transaction.isExpense ? Colors.red : Colors.green,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                );
+              }).toList(),
             );
           },
         ),
