@@ -479,7 +479,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               onMonthChanged: _onMonthChanged,
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Column(
                 children: [
                   TextField(
@@ -487,11 +487,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     decoration: InputDecoration(
                       labelText: 'Search',
                       hintText: 'Search in amounts or notes',
-                      prefixIcon: const Icon(Icons.search),
+                      prefixIcon: const Icon(Icons.search, size: 20),
                       border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear),
+                              icon: const Icon(Icons.clear, size: 20),
                               onPressed: () {
                                 setState(() {
                                   _searchController.clear();
@@ -502,7 +504,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     onChanged: (value) => setState(() {}),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
@@ -525,7 +527,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Category',
                               border: OutlineInputBorder(),
-                              suffixIcon: Icon(Icons.arrow_drop_down),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              suffixIcon: Icon(Icons.arrow_drop_down, size: 20),
                             ),
                             child: Row(
                               children: [
@@ -538,6 +542,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                             _selectedCategory],
                                     color:
                                         Theme.of(context).colorScheme.primary,
+                                    size: 20,
                                   ),
                                   const SizedBox(width: 8),
                                 ],
@@ -547,13 +552,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonFormField<bool?>(
                           value: _isExpense,
                           decoration: const InputDecoration(
                             labelText: 'Type',
                             border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                           ),
                           items: const [
                             DropdownMenuItem<bool?>(
