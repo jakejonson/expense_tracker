@@ -31,7 +31,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Transaction> _transactions = [];
   double _totalIncome = 0;
   double _totalExpense = 0;
-  Map<String, double> _categorySpending = {};
   List<Budget> _budgets = [];
   double _totalBudget = 0;
   double _totalSpent = 0;
@@ -72,7 +71,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _transactions = transactions;
       _totalIncome = income;
       _totalExpense = expense;
-      _categorySpending = spending;
     });
     _calculateSpending();
   }
@@ -320,38 +318,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   _buildGaugeChart(),
                   const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Category Spending',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          ..._categorySpending.entries.map((entry) => Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 4),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(entry.key),
-                                    Text(
-                                      '\$${entry.value.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                        ],
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
