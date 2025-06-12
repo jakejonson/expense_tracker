@@ -38,7 +38,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedCategory = Constants.expenseCategories.first;
   DateTime _selectedDate = DateTime.now();
   List<Transaction> _transactions = [];
-  List<Transaction> _scheduledTransactions = [];
   double _totalIncome = 0;
   double _totalExpense = 0;
   Map<String, double> _categorySpending = {};
@@ -52,17 +51,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.initState();
     _selectedCategory = Constants.expenseCategories.first;
     _loadData();
-    // Check for recurring transactions when dashboard loads
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkRecurringTransactions();
-    });
   }
 
   Future<void> _loadData() async {
     await Future.wait([
       _loadTransactions(),
       _loadBudgets(),
-      _loadScheduledTransactions(),
     ]);
   }
 
@@ -100,38 +94,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _totalBudget = _budgets.fold(0, (sum, budget) => sum + budget.amount);
     });
     _calculateSpending();
-  }
-
-  Future<void> _loadScheduledTransactions() async {
-    print('Loading scheduled transactions...');
-    final transactions =
-        await DatabaseHelper.instance.getScheduledTransactions();
-    print('Found ${transactions.length} scheduled transactions');
-    setState(() {
-      _scheduledTransactions = transactions;
-    });
-  }
-
-  Future<void> _checkRecurringTransactions() async {
-    print('Manually checking recurring transactions...');
-    final createdTransactions =
-        await DatabaseHelper.instance.checkAndCreateRecurringTransactions();
-    print('Created ${createdTransactions.length} new transactions');
-
-    if (createdTransactions.isNotEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Created ${createdTransactions.length} new recurring transaction(s)'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    }
-
-    // Reload all data
-    await _loadData();
   }
 
   void _calculateSpending() {
@@ -255,7 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         await DatabaseHelper.instance.deleteTransaction(transaction.id!);
       }
 
-      await _loadScheduledTransactions();
+      await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -388,7 +350,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
 
       await DatabaseHelper.instance.updateTransaction(updatedTransaction);
-      await _loadScheduledTransactions();
+      await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1043,341 +1005,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Widget _buildScheduledTransactions() {
-    // Group transactions by category and amount
-    final Map<String, List<Transaction>> groupedTransactions = {};
-    for (var transaction in _scheduledTransactions) {
-      final key =
-          '${transaction.category}_${transaction.amount}_${transaction.isExpense}';
-      if (!groupedTransactions.containsKey(key)) {
-        groupedTransactions[key] = [];
-      }
-      groupedTransactions[key]!.add(transaction);
-    }
-
-    // Get the last 20 transactions sorted by creation date (newest first)
-    final recentTransactions = _transactions.toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-    final last20Transactions = recentTransactions.take(20).toList();
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Transactions',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh),
-                  onPressed: () async {
-                    // Show loading indicator
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Checking for new transactions...'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    }
-
-                    // Check for new recurring transactions
-                    await _checkRecurringTransactions();
-
-                    // Refresh the list
-                    await _loadScheduledTransactions();
-                  },
-                  tooltip: 'Refresh & Check',
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            DefaultTabController(
-              length: 2,
-              child: Column(
-                children: [
-                  TabBar(
-                    tabs: const [
-                      Tab(text: 'Scheduled'),
-                      Tab(text: 'Recent'),
-                    ],
-                    labelColor: Theme.of(context).colorScheme.primary,
-                    unselectedLabelColor: Colors.grey,
-                  ),
-                  SizedBox(
-                    height: 400, // Fixed height for the tab content
-                    child: TabBarView(
-                      children: [
-                        // Scheduled Transactions Tab
-                        _scheduledTransactions.isEmpty
-                            ? const Center(
-                                child: Text('No scheduled transactions'),
-                              )
-                            : ListView.builder(
-                                itemCount: groupedTransactions.length,
-                                itemBuilder: (context, index) {
-                                  final key =
-                                      groupedTransactions.keys.elementAt(index);
-                                  final transactions =
-                                      groupedTransactions[key]!;
-                                  final firstTransaction = transactions.first;
-
-                                  // Sort transactions by next occurrence
-                                  transactions.sort((a, b) => DateTime.parse(
-                                          a.nextOccurrence!)
-                                      .compareTo(
-                                          DateTime.parse(b.nextOccurrence!)));
-
-                                  return ExpansionTile(
-                                    leading: Icon(
-                                      firstTransaction.isExpense
-                                          ? Constants.expenseCategoryIcons[
-                                              firstTransaction.category]
-                                          : Constants.incomeCategoryIcons[
-                                              firstTransaction.category],
-                                      color: firstTransaction.isExpense
-                                          ? Colors.red
-                                          : Colors.green,
-                                    ),
-                                    title: Text(
-                                      '${firstTransaction.amount.toStringAsFixed(2)} - ${firstTransaction.category}',
-                                      style:
-                                          Theme.of(context).textTheme.bodyLarge,
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${transactions.length} scheduled occurrence${transactions.length > 1 ? 's' : ''}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                        if (firstTransaction.note != null &&
-                                            firstTransaction.note!.isNotEmpty)
-                                          Text(
-                                            firstTransaction.note!,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontStyle: FontStyle.italic,
-                                                  color: Colors.grey[600],
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                      ],
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit),
-                                          onPressed: () =>
-                                              _editScheduledTransaction(
-                                                  firstTransaction),
-                                          tooltip: 'Edit All',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete),
-                                          onPressed: () =>
-                                              _cancelScheduledTransaction(
-                                                  firstTransaction,
-                                                  cancelAll: true),
-                                          tooltip: 'Cancel All',
-                                        ),
-                                      ],
-                                    ),
-                                    children: transactions.map((transaction) {
-                                      return ListTile(
-                                        title: Text(
-                                          'Next: ${DateFormat.yMMMd().format(DateTime.parse(transaction.nextOccurrence!))}',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium,
-                                        ),
-                                        subtitle: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Frequency: ${transaction.frequency?.capitalize()}',
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodySmall,
-                                            ),
-                                            if (transaction.note != null &&
-                                                transaction.note!.isNotEmpty)
-                                              Text(
-                                                transaction.note!,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      fontStyle:
-                                                          FontStyle.italic,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                              ),
-                                          ],
-                                        ),
-                                        trailing: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.edit,
-                                                  size: 20),
-                                              onPressed: () =>
-                                                  _editScheduledTransaction(
-                                                      transaction),
-                                              tooltip: 'Edit',
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.delete,
-                                                  size: 20),
-                                              onPressed: () =>
-                                                  _cancelScheduledTransaction(
-                                                      transaction),
-                                              tooltip: 'Cancel',
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    }).toList(),
-                                  );
-                                },
-                              ),
-                        // Recent Transactions Tab
-                        last20Transactions.isEmpty
-                            ? const Center(
-                                child: Text('No recent transactions'),
-                              )
-                            : ListView.builder(
-                                itemCount: last20Transactions.length,
-                                itemBuilder: (context, index) {
-                                  final transaction = last20Transactions[index];
-                                  return ListTile(
-                                    leading: Icon(
-                                      transaction.isExpense
-                                          ? Constants.expenseCategoryIcons[
-                                              transaction.category]
-                                          : Constants.incomeCategoryIcons[
-                                              transaction.category],
-                                      color: transaction.isExpense
-                                          ? Colors.red
-                                          : Colors.green,
-                                    ),
-                                    title: Text(
-                                      '${transaction.amount.toStringAsFixed(2)} - ${transaction.category}',
-                                      style:
-                                          Theme.of(context).textTheme.bodyLarge,
-                                    ),
-                                    subtitle: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          DateFormat.yMMMd()
-                                              .format(transaction.date),
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
-                                        ),
-                                        if (transaction.note != null &&
-                                            transaction.note!.isNotEmpty)
-                                          Text(
-                                            transaction.note!,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontStyle: FontStyle.italic,
-                                                  color: Colors.grey[600],
-                                                ),
-                                          ),
-                                      ],
-                                    ),
-                                    trailing: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.edit),
-                                          onPressed: () =>
-                                              _editTransaction(transaction),
-                                          tooltip: 'Edit',
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete),
-                                          onPressed: () async {
-                                            final shouldDelete =
-                                                await showDialog<bool>(
-                                              context: context,
-                                              builder: (context) => AlertDialog(
-                                                title: const Text(
-                                                    'Delete Transaction'),
-                                                content: Text(
-                                                  'Are you sure you want to delete this ${transaction.isExpense ? "expense" : "income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category}?',
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            context, false),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            context, true),
-                                                    child: const Text('Delete'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-
-                                            if (shouldDelete == true) {
-                                              await DatabaseHelper.instance
-                                                  .deleteTransaction(
-                                                      transaction.id!);
-                                              await _loadData();
-                                              if (mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                        'Transaction deleted'),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                            }
-                                          },
-                                          tooltip: 'Delete',
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1391,23 +1018,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.download),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ImportScreen()),
-              );
-            },
-            tooltip: 'Import Data',
-          ),
-          IconButton(
-            icon: const Icon(Icons.upload),
-            onPressed: _exportData,
-            tooltip: 'Export Data',
-          ),
-        ],
       ),
       drawer: AppDrawer(
         onExport: _exportData,
@@ -1470,8 +1080,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _buildGaugeChart(),
                   const SizedBox(height: 16),
                   _buildTransactionForm(),
-                  const SizedBox(height: 16),
-                  _buildScheduledTransactions(),
                 ],
               ),
             ),

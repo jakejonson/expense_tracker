@@ -36,7 +36,7 @@ class DatabaseHelper {
 
     return await sqflite.openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -55,7 +55,8 @@ class DatabaseHelper {
         isRecurring INTEGER NOT NULL DEFAULT 0,
         frequency TEXT,
         originalTransactionId INTEGER,
-        nextOccurrence TEXT
+        nextOccurrence TEXT,
+        creationDate TEXT
       )
     ''');
 
@@ -167,10 +168,22 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(
       sqflite.Database db, int oldVersion, int newVersion) async {
-    // Handle database upgrades here if needed in the future
     if (oldVersion < 2) {
-      // Example of how to add a new column in a future version
-      // await db.execute('ALTER TABLE transactions ADD COLUMN new_column TEXT');
+      try {
+        // Add creationDate column
+        await db
+            .execute('ALTER TABLE transactions ADD COLUMN creationDate TEXT');
+
+        // Set creationDate to date for existing transactions
+        await db.execute('''
+          UPDATE transactions 
+          SET creationDate = date 
+          WHERE creationDate IS NULL
+        ''');
+      } catch (e) {
+        // If upgrade fails, log error but don't crash
+        print('Error during database upgrade: $e');
+      }
     }
   }
 
@@ -184,11 +197,22 @@ class DatabaseHelper {
       throw DuplicateTransactionException(duplicates);
     }
 
-    final id = await db.insert('transactions', transaction.toMap());
+    // Set creation date for new transactions
+    final transactionMap = transaction.toMap();
+    if (transaction.creationDate == null) {
+      try {
+        transactionMap['creationDate'] = DateTime.now().toIso8601String();
+      } catch (e) {
+        // If setting current time fails, use transaction date as fallback
+        transactionMap['creationDate'] = transaction.date.toIso8601String();
+      }
+    }
+
+    final id = await db.insert('transactions', transactionMap);
 
     // If this is a recurring transaction, schedule the next occurrence
     if (transaction.isRecurring == 1 && transaction.frequency != null) {
-      await _scheduleNextTransaction(transaction.toMap(), id);
+      await _scheduleNextTransaction(transactionMap, id);
     }
 
     return id;
@@ -196,8 +220,11 @@ class DatabaseHelper {
 
   Future<List<Transaction>> getTransactions() async {
     final db = await database;
-    final List<Map<String, dynamic>> maps =
-        await db.query('transactions', orderBy: 'date DESC');
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      orderBy:
+          'CASE WHEN creationDate IS NULL THEN date ELSE creationDate END DESC',
+    );
     return List.generate(maps.length, (i) => Transaction.fromMap(maps[i]));
   }
 

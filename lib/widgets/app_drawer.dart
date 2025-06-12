@@ -3,7 +3,11 @@ import '../screens/import_screen.dart';
 import '../screens/category_management_screen.dart';
 import '../screens/category_mapping_screen.dart';
 import '../models/transaction.dart';
-import '../services/database_helper.dart';
+import '../services/transaction_service.dart';
+import '../utils/constants.dart';
+import '../utils/string_extensions.dart';
+import 'package:intl/intl.dart';
+import '../widgets/category_selection_dialog.dart';
 
 class AppDrawer extends StatefulWidget {
   final Function() onExport;
@@ -21,6 +25,7 @@ class _AppDrawerState extends State<AppDrawer> {
   List<Transaction> _last20Transactions = [];
   List<Transaction> _scheduledTransactions = [];
   bool _isLoading = true;
+  final _transactionService = TransactionService();
 
   @override
   void initState() {
@@ -31,16 +36,13 @@ class _AppDrawerState extends State<AppDrawer> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      // Get all transactions and sort by date
-      final allTransactions = await DatabaseHelper.instance.getTransactions();
-      allTransactions.sort((a, b) => b.date.compareTo(a.date));
-
-      // Get scheduled transactions
+      final recentTransactions =
+          await _transactionService.getRecentTransactions();
       final scheduledTransactions =
-          await DatabaseHelper.instance.getScheduledTransactions();
+          await _transactionService.getScheduledTransactions();
 
       setState(() {
-        _last20Transactions = allTransactions.take(20).toList();
+        _last20Transactions = recentTransactions;
         _scheduledTransactions = scheduledTransactions;
         _isLoading = false;
       });
@@ -183,47 +185,197 @@ class _AppDrawerState extends State<AppDrawer> {
 
   void _showTransactionsDialog(
       BuildContext context, List<Transaction> transactions, String title) {
+    bool isSelectionMode = false;
+    final Set<int> selectedTransactions = {};
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: transactions.isEmpty
-              ? const Center(
-                  child: Text('No transactions found'),
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    final transaction = transactions[index];
-                    return ListTile(
-                      leading: Icon(
-                        transaction.isExpense ? Icons.remove : Icons.add,
-                        color:
-                            transaction.isExpense ? Colors.red : Colors.green,
-                      ),
-                      title: Text(transaction.category),
-                      subtitle: Text(transaction.note ?? ''),
-                      trailing: Text(
-                        '\$${transaction.amount.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color:
-                              transaction.isExpense ? Colors.red : Colors.green,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    );
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title),
+              if (title == 'Recent Transactions') ...[
+                if (isSelectionMode && selectedTransactions.isNotEmpty) ...[
+                  IconButton(
+                    icon: const Icon(Icons.edit),
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _transactionService.batchEditTransactions(
+                          context, selectedTransactions.toList());
+                      _loadData();
+                    },
+                    tooltip: 'Edit Selected',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete),
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _transactionService.batchDeleteTransactions(
+                          context, selectedTransactions.toList());
+                      _loadData();
+                    },
+                    tooltip: 'Delete Selected',
+                  ),
+                ],
+                IconButton(
+                  icon: Icon(isSelectionMode ? Icons.close : Icons.select_all),
+                  onPressed: () {
+                    setState(() {
+                      isSelectionMode = !isSelectionMode;
+                      if (!isSelectionMode) {
+                        selectedTransactions.clear();
+                      }
+                    });
                   },
+                  tooltip:
+                      isSelectionMode ? 'Exit Selection' : 'Select Multiple',
                 ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+              ],
+            ],
           ),
-        ],
+          content: SizedBox(
+            width: double.maxFinite,
+            child: transactions.isEmpty
+                ? const Center(
+                    child: Text('No transactions found'),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      final transaction = transactions[index];
+                      return GestureDetector(
+                        onLongPress: () {
+                          if (title == 'Recent Transactions' &&
+                              !isSelectionMode) {
+                            setState(() {
+                              isSelectionMode = true;
+                              selectedTransactions.add(transaction.id!);
+                            });
+                          }
+                        },
+                        child: ListTile(
+                          leading:
+                              isSelectionMode && title == 'Recent Transactions'
+                                  ? Checkbox(
+                                      value: selectedTransactions
+                                          .contains(transaction.id),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          if (value == true) {
+                                            selectedTransactions
+                                                .add(transaction.id!);
+                                          } else {
+                                            selectedTransactions
+                                                .remove(transaction.id);
+                                            if (selectedTransactions.isEmpty) {
+                                              isSelectionMode = false;
+                                            }
+                                          }
+                                        });
+                                      },
+                                    )
+                                  : Icon(
+                                      transaction.isExpense
+                                          ? Icons.remove
+                                          : Icons.add,
+                                      color: transaction.isExpense
+                                          ? Colors.red
+                                          : Colors.green,
+                                    ),
+                          title: Text(transaction.category),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (transaction.note != null &&
+                                  transaction.note!.isNotEmpty)
+                                Text(transaction.note!),
+                              if (transaction.nextOccurrence != null)
+                                Text(
+                                  'Next: ${DateFormat.yMMMd().format(DateTime.parse(transaction.nextOccurrence!))}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              if (transaction.frequency != null)
+                                Text(
+                                  'Frequency: ${transaction.frequency!.capitalize()}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                            ],
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '\$${transaction.amount.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: transaction.isExpense
+                                      ? Colors.red
+                                      : Colors.green,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (title == 'Scheduled Transactions') ...[
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 20),
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    await _transactionService
+                                        .editScheduledTransaction(
+                                            context, transaction);
+                                    _loadData();
+                                  },
+                                  tooltip: 'Edit',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, size: 20),
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    await _transactionService
+                                        .cancelScheduledTransaction(
+                                            context, transaction);
+                                    _loadData();
+                                  },
+                                  tooltip: 'Cancel',
+                                ),
+                              ] else if (title == 'Recent Transactions' &&
+                                  !isSelectionMode) ...[
+                                IconButton(
+                                  icon: const Icon(Icons.edit, size: 20),
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    await _transactionService.editTransaction(
+                                        context, transaction);
+                                    _loadData();
+                                  },
+                                  tooltip: 'Edit',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, size: 20),
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    await _transactionService.deleteTransaction(
+                                        context, transaction);
+                                    _loadData();
+                                  },
+                                  tooltip: 'Delete',
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
       ),
     );
   }

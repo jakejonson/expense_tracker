@@ -9,6 +9,7 @@ class Transaction {
   final String? frequency;
   final int? originalTransactionId;
   final String? nextOccurrence;
+  final DateTime? creationDate;
 
   Transaction({
     this.id,
@@ -21,6 +22,7 @@ class Transaction {
     this.frequency,
     this.originalTransactionId,
     this.nextOccurrence,
+    this.creationDate,
   });
 
   Map<String, dynamic> toMap() {
@@ -35,6 +37,7 @@ class Transaction {
       'frequency': frequency,
       'originalTransactionId': originalTransactionId,
       'nextOccurrence': nextOccurrence,
+      'creationDate': creationDate?.toIso8601String(),
     };
   }
 
@@ -50,6 +53,9 @@ class Transaction {
       frequency: map['frequency'] as String?,
       originalTransactionId: map['originalTransactionId'] as int?,
       nextOccurrence: map['nextOccurrence'] as String?,
+      creationDate: map['creationDate'] != null
+          ? DateTime.parse(map['creationDate'] as String)
+          : null,
     );
   }
 } 
