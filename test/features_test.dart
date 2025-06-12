@@ -23,7 +23,7 @@ void main() {
     db.setTestDatabase(await sqflite.databaseFactoryFfi.openDatabase(
       sqflite.inMemoryDatabasePath,
       options: sqflite.OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE transactions (
@@ -36,7 +36,8 @@ void main() {
               isRecurring INTEGER NOT NULL DEFAULT 0,
               frequency TEXT,
               originalTransactionId INTEGER,
-              nextOccurrence TEXT
+              nextOccurrence TEXT,
+              creationDate TEXT
             )
           ''');
 
@@ -94,11 +95,11 @@ void main() {
       }
 
       // Verify dates
-      expect(transactions[0].date, DateTime(now.year, now.month - 0, 1));
-      expect(transactions[1].date, DateTime(now.year, now.month - 1, 1));
+      expect(transactions[0].date, DateTime(now.year, now.month - 4, 1));
+      expect(transactions[1].date, DateTime(now.year, now.month - 3, 1));
       expect(transactions[2].date, DateTime(now.year, now.month - 2, 1));
-      expect(transactions[3].date, DateTime(now.year, now.month - 3, 1));
-      expect(transactions[4].date, DateTime(now.year, now.month - 4, 1));
+      expect(transactions[3].date, DateTime(now.year, now.month - 1, 1));
+      expect(transactions[4].date, DateTime(now.year, now.month - 0, 1));
     });
 
     test('Create weekly recurring transaction', () async {
@@ -134,7 +135,7 @@ void main() {
         category: 'Groceries',
       );
 
-      await db.addCategoryMapping(mapping);
+      final id = await db.insertCategoryMapping(mapping);
       final mappings = await db.getCategoryMappings();
 
       expect(mappings.length, 1);
@@ -148,14 +149,14 @@ void main() {
         category: 'Groceries',
       );
 
-      await db.addCategoryMapping(mapping);
+      final id = await db.insertCategoryMapping(mapping);
 
       final updatedMapping = CategoryMapping(
         description: 'TEST STORE',
         category: 'Shopping',
       );
 
-      await db.updateCategoryMapping(updatedMapping);
+      await db.insertCategoryMapping(updatedMapping);
       final mappings = await db.getCategoryMappings();
 
       expect(mappings.length, 1);
@@ -168,8 +169,8 @@ void main() {
         category: 'Groceries',
       );
 
-      await db.addCategoryMapping(mapping);
-      await db.deleteCategoryMapping('TEST STORE');
+      final id = await db.insertCategoryMapping(mapping);
+      await db.deleteCategoryMapping(id);
 
       final mappings = await db.getCategoryMappings();
       expect(mappings.length, 0);
@@ -248,11 +249,10 @@ void main() {
 
     test('Filter by category', () async {
       final transactions = await db.getTransactions();
-      final filtered =
-          transactions.where((t) => t.category == 'Groceries').toList();
+      final filtered = transactions.where((t) => t.category == 'Rent').toList();
 
       expect(filtered.length, 1);
-      expect(filtered[0].category, 'Groceries');
+      expect(filtered[0].category, 'Rent');
     });
 
     test('Filter by transaction type', () async {

@@ -20,7 +20,7 @@ void main() {
     database = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE transactions(
@@ -33,7 +33,8 @@ void main() {
               isRecurring INTEGER NOT NULL DEFAULT 0,
               frequency TEXT,
               originalTransactionId INTEGER,
-              nextOccurrence TEXT
+              nextOccurrence TEXT,
+              creationDate TEXT
             )
           ''');
 
@@ -61,7 +62,7 @@ void main() {
   group('RBC Import Tests', () {
     test('Import RBC CSV with category mapping', () async {
       // Add test category mapping
-      await db.addCategoryMapping(CategoryMapping(
+      await db.insertCategoryMapping(CategoryMapping(
         description: 'PAYROLL',
         category: 'Salary',
       ));
@@ -91,6 +92,7 @@ Chequing,123456789,01/01/2024,12:00:00,PAYROLL,Monthly Salary,1000.00
       expect(result.transactions[0].amount, 1000.0);
       expect(result.transactions[0].category, 'Salary');
       expect(result.transactions[0].isExpense, false);
+      expect(result.transactions[0].creationDate, isNotNull);
 
       // Clean up
       await file.delete();

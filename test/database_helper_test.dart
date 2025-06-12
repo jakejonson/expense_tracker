@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/services/database_helper.dart';
 import 'package:expense_tracker/models/transaction.dart' as models;
 import 'package:expense_tracker/models/budget.dart';
+import 'package:expense_tracker/models/category_mapping.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
@@ -17,7 +18,7 @@ void main() {
     database = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE transactions(
@@ -30,7 +31,8 @@ void main() {
               isRecurring INTEGER NOT NULL DEFAULT 0,
               frequency TEXT,
               originalTransactionId INTEGER,
-              nextOccurrence TEXT
+              nextOccurrence TEXT,
+              creationDate TEXT
             )
           ''');
 
@@ -42,6 +44,15 @@ void main() {
               startDate TEXT NOT NULL,
               endDate TEXT NOT NULL,
               hasSurpassed INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+
+          await db.execute('''
+            CREATE TABLE category_mappings(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              description TEXT NOT NULL,
+              category TEXT NOT NULL,
+              UNIQUE(description)
             )
           ''');
         },
@@ -73,6 +84,24 @@ void main() {
       expect(transactions[0].amount, 100.0);
       expect(transactions[0].category, 'Food');
       expect(transactions[0].isExpense, true);
+      expect(transactions[0].creationDate, isNotNull);
+    });
+
+    test('Insert duplicate transaction throws exception', () async {
+      final now = DateTime.now();
+      final transaction = models.Transaction(
+        amount: 100.0,
+        category: 'Food',
+        date: now,
+        isExpense: true,
+      );
+
+      await db.insertTransaction(transaction);
+
+      expect(
+        () => db.insertTransaction(transaction),
+        throwsA(isA<DuplicateTransactionException>()),
+      );
     });
 
     test('Get transactions for month', () async {
@@ -198,6 +227,51 @@ void main() {
 
       final budgets = await db.getBudgetsForMonth(DateTime.now());
       expect(budgets.length, 0);
+    });
+  });
+
+  group('Category Mapping Tests', () {
+    test('Insert category mapping', () async {
+      final mapping = CategoryMapping(
+        description: 'TEST STORE',
+        category: 'Shopping',
+      );
+
+      final id = await db.insertCategoryMapping(mapping);
+      expect(id, 1);
+
+      final mappings = await db.getCategoryMappings();
+      expect(mappings.length, 1);
+      expect(mappings[0].description, 'TEST STORE');
+      expect(mappings[0].category, 'Shopping');
+    });
+
+    test('Get category mapping by description', () async {
+      final mapping = CategoryMapping(
+        description: 'TEST STORE',
+        category: 'Shopping',
+      );
+
+      await db.insertCategoryMapping(mapping);
+
+      final foundMapping =
+          await db.getCategoryMappingByDescription('TEST STORE');
+      expect(foundMapping, isNotNull);
+      expect(foundMapping!.description, 'TEST STORE');
+      expect(foundMapping.category, 'Shopping');
+    });
+
+    test('Delete category mapping', () async {
+      final mapping = CategoryMapping(
+        description: 'TEST STORE',
+        category: 'Shopping',
+      );
+
+      final id = await db.insertCategoryMapping(mapping);
+      await db.deleteCategoryMapping(id);
+
+      final mappings = await db.getCategoryMappings();
+      expect(mappings.length, 0);
     });
   });
 }

@@ -90,6 +90,7 @@ class RBCImportService {
           date: date,
           isExpense: isExpense,
           note: note,
+          creationDate: DateTime.now(),
         );
 
         try {

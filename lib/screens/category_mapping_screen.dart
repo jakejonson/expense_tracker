@@ -62,7 +62,7 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
     final category = _selectedCategory!;
 
     final mapping = CategoryMapping(description: keyword, category: category);
-    await _db.addCategoryMapping(mapping);
+    await _db.insertCategoryMapping(mapping);
 
     _keywordController.clear();
     setState(() {
@@ -72,7 +72,10 @@ class _CategoryMappingScreenState extends State<CategoryMappingScreen> {
   }
 
   Future<void> _deleteMapping(String description) async {
-    await _db.deleteCategoryMapping(description);
+    final mapping = await _db.getCategoryMappingByDescription(description);
+    if (mapping != null) {
+      await _db.deleteCategoryMapping(mapping.id!);
+    }
     _loadMappings();
   }
 

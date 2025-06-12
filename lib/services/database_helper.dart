@@ -598,47 +598,40 @@ class DatabaseHelper {
   }
 
   Future<List<CategoryMapping>> getCategoryMappings() async {
-    try {
-      await _ensureCategoryMappingTable();
-      final db = await database;
-      final List<Map<String, dynamic>> maps =
-          await db.query('category_mappings');
-      return List.generate(
-          maps.length, (i) => CategoryMapping.fromMap(maps[i]));
-    } catch (e) {
-      print('Error getting category mappings: $e');
-      return [];
-    }
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('category_mappings');
+    return List.generate(maps.length, (i) => CategoryMapping.fromMap(maps[i]));
   }
 
-  Future<void> addCategoryMapping(CategoryMapping mapping) async {
-    try {
-      await _ensureCategoryMappingTable();
-      final db = await database;
-      await db.insert(
-        'category_mappings',
-        mapping.toMap(),
-        conflictAlgorithm: sqflite.ConflictAlgorithm.replace,
-      );
-    } catch (e) {
-      print('Error adding category mapping: $e');
-      rethrow;
-    }
+  Future<CategoryMapping?> getCategoryMappingByDescription(
+      String description) async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'category_mappings',
+      where: 'description = ?',
+      whereArgs: [description],
+    );
+
+    if (maps.isEmpty) return null;
+    return CategoryMapping.fromMap(maps.first);
   }
 
-  Future<void> deleteCategoryMapping(String description) async {
-    try {
-      await _ensureCategoryMappingTable();
-      final db = await database;
-      await db.delete(
-        'category_mappings',
-        where: 'description = ?',
-        whereArgs: [description],
-      );
-    } catch (e) {
-      print('Error deleting category mapping: $e');
-      rethrow;
-    }
+  Future<int> insertCategoryMapping(CategoryMapping mapping) async {
+    final db = await database;
+    return await db.insert(
+      'category_mappings',
+      mapping.toMap(),
+      conflictAlgorithm: sqflite.ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteCategoryMapping(int id) async {
+    final db = await database;
+    await db.delete(
+      'category_mappings',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<void> updateCategoryMapping(CategoryMapping mapping) async {

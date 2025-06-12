@@ -20,7 +20,7 @@ void main() {
     database = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 1,
+        version: 2,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE transactions(
@@ -33,7 +33,8 @@ void main() {
               isRecurring INTEGER NOT NULL DEFAULT 0,
               frequency TEXT,
               originalTransactionId INTEGER,
-              nextOccurrence TEXT
+              nextOccurrence TEXT,
+              creationDate TEXT
             )
           ''');
 
@@ -45,6 +46,15 @@ void main() {
               startDate TEXT NOT NULL,
               endDate TEXT NOT NULL,
               hasSurpassed INTEGER NOT NULL DEFAULT 0
+            )
+          ''');
+
+          await db.execute('''
+            CREATE TABLE category_mappings(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              description TEXT NOT NULL,
+              category TEXT NOT NULL,
+              UNIQUE(description)
             )
           ''');
         },
@@ -93,6 +103,7 @@ void main() {
         TextCellValue('Amount'),
         TextCellValue('Type'),
         TextCellValue('Note'),
+        TextCellValue('Creation Date'),
       ]);
 
       // Get transactions
@@ -106,6 +117,7 @@ void main() {
           TextCellValue(transaction.amount.toString()),
           TextCellValue(transaction.isExpense ? 'Expense' : 'Income'),
           TextCellValue(transaction.note ?? ''),
+          TextCellValue(transaction.creationDate?.toString() ?? ''),
         ]);
       }
 
@@ -200,6 +212,7 @@ void main() {
         TextCellValue('Amount'),
         TextCellValue('Type'),
         TextCellValue('Note'),
+        TextCellValue('Creation Date'),
       ]);
 
       // Add test data
@@ -210,6 +223,7 @@ void main() {
         TextCellValue('100.0'),
         TextCellValue('Expense'),
         TextCellValue('Lunch'),
+        TextCellValue(now.toString()),
       ]);
       sheet.appendRow([
         TextCellValue(now.toString()),
@@ -217,6 +231,7 @@ void main() {
         TextCellValue('200.0'),
         TextCellValue('Expense'),
         TextCellValue('Bus fare'),
+        TextCellValue(now.toString()),
       ]);
 
       // Save to temporary file
@@ -246,6 +261,7 @@ void main() {
           final amountStr = row[2]?.value.toString();
           final typeStr = row[3]?.value.toString();
           final noteStr = row[4]?.value.toString();
+          final creationDateStr = row[5]?.value.toString();
 
           if (dateStr == null ||
               categoryStr == null ||
@@ -254,18 +270,18 @@ void main() {
             continue;
           }
 
-          final date = DateTime.parse(dateStr);
-          final amount = double.parse(amountStr);
-          final isExpense = typeStr == 'Expense';
-
-          // Insert into database
-          await db.insertTransaction(models.Transaction(
-            amount: amount,
+          final transaction = models.Transaction(
+            amount: double.parse(amountStr),
             category: categoryStr,
-            date: date,
-            isExpense: isExpense,
             note: noteStr,
-          ));
+            date: DateTime.parse(dateStr),
+            isExpense: typeStr == 'Expense',
+            creationDate: creationDateStr != null
+                ? DateTime.parse(creationDateStr)
+                : null,
+          );
+
+          await db.insertTransaction(transaction);
         }
 
         // Verify imported data
@@ -277,7 +293,7 @@ void main() {
         expect(transactions[1].amount, 200.0);
 
         // Clean up
-        file.deleteSync();
+        File(filePath).deleteSync();
       }
     });
 
@@ -340,26 +356,22 @@ void main() {
           final endDateStr = row[3]?.value.toString();
           final hasSurpassedStr = row[4]?.value.toString();
 
-          if (amountStr == null ||
+          if (categoryStr == null ||
+              amountStr == null ||
               startDateStr == null ||
-              endDateStr == null ||
-              hasSurpassedStr == null) {
+              endDateStr == null) {
             continue;
           }
 
-          final amount = double.parse(amountStr);
-          final startDate = DateTime.parse(startDateStr);
-          final endDate = DateTime.parse(endDateStr);
-          final hasSurpassed = hasSurpassedStr == 'Yes';
-
-          // Insert into database
-          await db.insertBudget(Budget(
-            amount: amount,
+          final budget = Budget(
+            amount: double.parse(amountStr),
             category: categoryStr,
-            startDate: startDate,
-            endDate: endDate,
-            hasSurpassed: hasSurpassed,
-          ));
+            startDate: DateTime.parse(startDateStr),
+            endDate: DateTime.parse(endDateStr),
+            hasSurpassed: hasSurpassedStr == 'Yes',
+          );
+
+          await db.insertBudget(budget);
         }
 
         // Verify imported data
@@ -371,7 +383,7 @@ void main() {
         expect(budgets[1].amount, 2000.0);
 
         // Clean up
-        file.deleteSync();
+        File(filePath).deleteSync();
       }
     });
 
@@ -387,15 +399,17 @@ void main() {
         TextCellValue('Amount'),
         TextCellValue('Type'),
         TextCellValue('Note'),
+        TextCellValue('Creation Date'),
       ]);
 
       // Add invalid data
       sheet.appendRow([
-        TextCellValue('invalid_date'),
+        TextCellValue('invalid date'),
         TextCellValue('Food'),
-        TextCellValue('not_a_number'),
-        TextCellValue('Invalid'),
-        TextCellValue('Test'),
+        TextCellValue('invalid amount'),
+        TextCellValue('invalid type'),
+        TextCellValue('Lunch'),
+        TextCellValue('invalid creation date'),
       ]);
 
       // Save to temporary file
@@ -421,27 +435,44 @@ void main() {
           if (row.isEmpty) continue;
 
           final dateStr = row[0]?.value.toString();
+          final categoryStr = row[1]?.value.toString();
           final amountStr = row[2]?.value.toString();
+          final typeStr = row[3]?.value.toString();
+          final noteStr = row[4]?.value.toString();
+          final creationDateStr = row[5]?.value.toString();
 
-          if (dateStr == null || amountStr == null) {
+          if (dateStr == null ||
+              categoryStr == null ||
+              amountStr == null ||
+              typeStr == null) {
             continue;
           }
 
-          // Try to parse data, should handle errors gracefully
           try {
-            final date = DateTime.parse(dateStr);
-            final amount = double.parse(amountStr);
+            final transaction = models.Transaction(
+              amount: double.parse(amountStr),
+              category: categoryStr,
+              note: noteStr,
+              date: DateTime.parse(dateStr),
+              isExpense: typeStr == 'Expense',
+              creationDate: creationDateStr != null
+                  ? DateTime.parse(creationDateStr)
+                  : null,
+            );
 
-            // This should not be reached due to invalid data
-            expect(true, false);
+            await db.insertTransaction(transaction);
           } catch (e) {
-            // Expected error
-            expect(e, isA<FormatException>());
+            // Invalid data should be skipped
+            continue;
           }
         }
 
+        // Verify no data was imported
+        final transactions = await db.getTransactions();
+        expect(transactions.length, 0);
+
         // Clean up
-        file.deleteSync();
+        File(filePath).deleteSync();
       }
     });
   });

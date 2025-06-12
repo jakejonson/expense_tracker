@@ -895,7 +895,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ElevatedButton.icon(
                     onPressed: () async {
                       try {
-                        await DatabaseHelper.instance.addCategoryMapping(
+                        await DatabaseHelper.instance.insertCategoryMapping(
                           CategoryMapping(
                             description: transaction.note!,
                             category: selectedCategory,
