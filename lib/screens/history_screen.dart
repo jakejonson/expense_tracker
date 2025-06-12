@@ -371,7 +371,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Transaction History'),
+          title: const Text('History'),
           leading: Builder(
             builder: (context) => IconButton(
               icon: const Icon(Icons.menu),
