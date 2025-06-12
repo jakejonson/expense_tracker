@@ -231,113 +231,143 @@ class _AppDrawerState extends State<AppDrawer> {
                           }
                         },
                         child: ListTile(
-                          leading:
-                              isSelectionMode && title == 'Recent Transactions'
-                                  ? Checkbox(
-                                      value: selectedTransactions
-                                          .contains(transaction.id),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          if (value == true) {
-                                            selectedTransactions
-                                                .add(transaction.id!);
-                                          } else {
-                                            selectedTransactions
-                                                .remove(transaction.id);
-                                            if (selectedTransactions.isEmpty) {
-                                              isSelectionMode = false;
-                                            }
+                          contentPadding: EdgeInsets.only(
+                            left: isSelectionMode &&
+                                    title == 'Recent Transactions'
+                                ? 0
+                                : 16,
+                            right: 16,
+                            top: 4,
+                            bottom: 4,
+                          ),
+                          leading: isSelectionMode &&
+                                  title == 'Recent Transactions'
+                              ? Transform.translate(
+                                  offset: const Offset(-8, 0),
+                                  child: Checkbox(
+                                    value: selectedTransactions
+                                        .contains(transaction.id),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          selectedTransactions
+                                              .add(transaction.id!);
+                                        } else {
+                                          selectedTransactions
+                                              .remove(transaction.id);
+                                          if (selectedTransactions.isEmpty) {
+                                            isSelectionMode = false;
                                           }
-                                        });
-                                      },
-                                    )
-                                  : Icon(
-                                      transaction.isExpense
-                                          ? Icons.remove
-                                          : Icons.add,
+                                        }
+                                      });
+                                    },
+                                  ),
+                                )
+                              : null,
+                          title: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      transaction.category,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  Text(
+                                    '\$${transaction.amount.toStringAsFixed(2)}',
+                                    style: TextStyle(
                                       color: transaction.isExpense
                                           ? Colors.red
                                           : Colors.green,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                          title: Text(transaction.category),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (transaction.note != null &&
-                                  transaction.note!.isNotEmpty)
-                                Text(transaction.note!),
-                              if (transaction.nextOccurrence != null)
-                                Text(
-                                  'Next: ${DateFormat.yMMMd().format(DateTime.parse(transaction.nextOccurrence!))}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                              if (transaction.frequency != null)
-                                Text(
-                                  'Frequency: ${transaction.frequency!.capitalize()}',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                            ],
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                '\$${transaction.amount.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  color: transaction.isExpense
-                                      ? Colors.red
-                                      : Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                  ),
+                                ],
                               ),
-                              if (title == 'Scheduled Transactions') ...[
-                                IconButton(
-                                  icon: const Icon(Icons.edit, size: 20),
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await _transactionService
-                                        .editScheduledTransaction(
-                                            context, transaction);
-                                    _loadData();
-                                  },
-                                  tooltip: 'Edit',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, size: 20),
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await _transactionService
-                                        .cancelScheduledTransaction(
-                                            context, transaction);
-                                    _loadData();
-                                  },
-                                  tooltip: 'Cancel',
-                                ),
-                              ] else if (title == 'Recent Transactions' &&
-                                  !isSelectionMode) ...[
-                                IconButton(
-                                  icon: const Icon(Icons.edit, size: 20),
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await _transactionService.editTransaction(
-                                        context, transaction);
-                                    _loadData();
-                                  },
-                                  tooltip: 'Edit',
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, size: 20),
-                                  onPressed: () async {
-                                    Navigator.pop(context);
-                                    await _transactionService.deleteTransaction(
-                                        context, transaction);
-                                    _loadData();
-                                  },
-                                  tooltip: 'Delete',
-                                ),
-                              ],
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          DateFormat.yMMMd()
+                                              .format(transaction.date),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall,
+                                        ),
+                                        if (transaction.note != null &&
+                                            transaction.note!.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            transaction.note!,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (!isSelectionMode) ...[
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () async {
+                                        Navigator.pop(context);
+                                        if (title == 'Scheduled Transactions') {
+                                          await _transactionService
+                                              .editScheduledTransaction(
+                                                  context, transaction);
+                                        } else {
+                                          await _transactionService
+                                              .editTransaction(
+                                                  context, transaction);
+                                        }
+                                        _loadData();
+                                      },
+                                      tooltip: 'Edit',
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, size: 18),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: () async {
+                                        Navigator.pop(context);
+                                        if (title == 'Scheduled Transactions') {
+                                          await _transactionService
+                                              .cancelScheduledTransaction(
+                                                  context, transaction);
+                                        } else {
+                                          await _transactionService
+                                              .deleteTransaction(
+                                                  context, transaction);
+                                        }
+                                        _loadData();
+                                      },
+                                      tooltip: 'Delete',
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ],
                           ),
+                          subtitle: null,
+                          trailing: null,
                         ),
                       );
                     },
