@@ -91,7 +91,7 @@ class BMOImportService {
           await _db.insertTransaction(transaction);
           transactions.add(transaction);
           processedCount++;
-        } on DuplicateTransactionException catch (e) {
+        } on DuplicateTransactionException {
           // Skip duplicate transactions during import
           skippedCount++;
           continue;

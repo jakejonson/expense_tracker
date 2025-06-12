@@ -11,7 +11,6 @@ import 'package:expense_tracker/screens/category_mapping_screen.dart';
 import '../widgets/app_drawer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:file_selector/file_selector.dart';
 
 class ImportScreen extends StatefulWidget {
   final String? initialSource;
@@ -158,7 +157,7 @@ class _ImportScreenState extends State<ImportScreen> {
             try {
               await _db.insertTransaction(transaction);
               importedTransactions.add(transaction);
-            } on DuplicateTransactionException catch (e) {
+            } on DuplicateTransactionException {
               // Skip duplicate transactions during import
               continue;
             }

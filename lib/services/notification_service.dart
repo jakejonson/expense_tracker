@@ -129,7 +129,7 @@ class NotificationService {
         // Log successful transaction creation
         print(
             'Transaction created: ${transaction.amount} - ${transaction.note}');
-      } on DuplicateTransactionException catch (e) {
+      } on DuplicateTransactionException {
         // Log duplicate transaction
         print(
             'Duplicate transaction detected: ${transaction.amount} - ${transaction.note}');

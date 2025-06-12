@@ -1,7 +1,6 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:expense_tracker/models/transaction.dart';
 import 'package:expense_tracker/services/database_helper.dart';
-import 'dart:developer' as developer;
 import 'dart:math';
 import 'dart:convert';
 
@@ -142,7 +141,7 @@ class TDImportService {
             processedCount++;
             print(
                 'Successfully processed transaction: ${transaction.note} (${transaction.amount})');
-          } on DuplicateTransactionException catch (e) {
+          } on DuplicateTransactionException {
             print('Skipping duplicate transaction: ${transaction.note}');
             skippedCount++;
             continue;

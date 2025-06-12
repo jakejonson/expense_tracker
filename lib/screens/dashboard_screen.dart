@@ -4,22 +4,13 @@ import '../models/budget.dart';
 import '../services/database_helper.dart';
 import '../utils/constants.dart';
 import 'package:intl/intl.dart';
-import 'category_management_screen.dart';
 import '../widgets/month_selector.dart';
 import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:share_plus/share_plus.dart';
-import 'import_screen.dart';
-import '../widgets/category_grid.dart';
 import '../widgets/category_selection_dialog.dart';
 import '../widgets/app_drawer.dart';
-
-extension StringExtension on String {
-  String capitalize() {
-    return "${this[0].toUpperCase()}${substring(1)}";
-  }
-}
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -109,259 +100,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .fold(0, (sum, t) => sum + t.amount);
   }
 
-  Future<void> _navigateToCategoryManagement() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CategoryManagementScreen(),
-      ),
-    );
-    // Refresh the screen when returning from category management
-    setState(() {
-      _selectedCategory = _isExpense
-          ? Constants.expenseCategories.first
-          : Constants.incomeCategories.first;
-    });
-  }
-
-  Future<void> _checkBudgetSurpassed(double amount) async {
-    final budgets = await DatabaseHelper.instance.getBudgets();
-    final startOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final endOfMonth =
-        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
-
-    for (var budget in budgets) {
-      if (budget.startDate.isBefore(endOfMonth) &&
-          budget.endDate.isAfter(startOfMonth)) {
-        double spent = 0;
-        if (budget.category == null) {
-          // Overall budget
-          spent =
-              _categorySpending.values.fold(0.0, (sum, amount) => sum + amount);
-        } else {
-          // Category-specific budget
-          spent = _categorySpending[budget.category!] ?? 0;
-        }
-
-        if (spent > budget.amount && !budget.hasSurpassed) {
-          if (!mounted) return;
-
-          final shouldMark = await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('Budget Surpassed'),
-              content: Text(
-                'You have exceeded your ${budget.category ?? 'overall'} budget of \$${budget.amount.toStringAsFixed(2)}.\n\nCurrent spending: \$${spent.toStringAsFixed(2)}',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-
-          if (shouldMark == true && mounted) {
-            await DatabaseHelper.instance.markBudgetAsSurpassed(budget.id!);
-          }
-        }
-      }
-    }
-  }
-
-  Future<void> _cancelScheduledTransaction(Transaction transaction,
-      {bool cancelAll = false}) async {
-    final shouldCancel = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(cancelAll
-            ? 'Cancel All Scheduled Transactions'
-            : 'Cancel Scheduled Transaction'),
-        content: Text(
-          cancelAll
-              ? 'Are you sure you want to cancel all scheduled ${transaction.isExpense ? "expenses" : "incomes"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category}?'
-              : 'Are you sure you want to cancel the scheduled ${transaction.isExpense ? "expense" : "income"} of \$${transaction.amount.toStringAsFixed(2)} for ${transaction.category}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes'),
-          ),
-        ],
-      ),
-    );
-
-    if (shouldCancel == true) {
-      if (cancelAll) {
-        // Delete all recurring transactions with the same category, amount, and expense type
-        final db = await DatabaseHelper.instance.database;
-        await db.delete(
-          'transactions',
-          where:
-              'category = ? AND amount = ? AND isExpense = ? AND isRecurring = ?',
-          whereArgs: [
-            transaction.category,
-            transaction.amount,
-            transaction.isExpense ? 1 : 0,
-            1
-          ],
-        );
-      } else {
-        // Delete only the original recurring transaction
-        await DatabaseHelper.instance.deleteTransaction(transaction.id!);
-      }
-
-      await _loadData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(cancelAll
-                ? 'All scheduled transactions cancelled'
-                : 'Scheduled transaction cancelled'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _editScheduledTransaction(Transaction transaction) async {
-    final Map<String, dynamic> editResult = {};
-    final noteController = TextEditingController(text: transaction.note);
-
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Scheduled Transaction'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                initialValue: transaction.amount.toString(),
-                decoration: const InputDecoration(labelText: 'Amount'),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter an amount';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-                onSaved: (value) => editResult['amount'] = double.parse(value!),
-              ),
-              const SizedBox(height: 16),
-              InkWell(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => CategorySelectionDialog(
-                      isExpense: _isExpense,
-                      selectedCategory: _selectedCategory,
-                      onCategorySelected: (category) {
-                        setState(() {
-                          _selectedCategory = category;
-                        });
-                      },
-                    ),
-                  );
-                },
-                child: InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
-                    suffixIcon: Icon(Icons.arrow_drop_down),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _isExpense
-                            ? Constants.expenseCategoryIcons[_selectedCategory]
-                            : Constants.incomeCategoryIcons[_selectedCategory],
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(_selectedCategory ?? 'Select Category'),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: transaction.frequency,
-                decoration: const InputDecoration(labelText: 'Frequency'),
-                items: const [
-                  DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                  DropdownMenuItem(value: 'biweekly', child: Text('Bi-weekly')),
-                  DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                  DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
-                ],
-                onChanged: (value) => editResult['frequency'] = value,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: noteController,
-                decoration: const InputDecoration(
-                  labelText: 'Note (Optional)',
-                  hintText: 'Add a note to this transaction',
-                ),
-                maxLines: 2,
-                onChanged: (value) => editResult['note'] = value,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              editResult['note'] =
-                  noteController.text.isEmpty ? null : noteController.text;
-              Navigator.pop(context, editResult);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      final updatedTransaction = Transaction(
-        id: transaction.id,
-        amount: result['amount'] ?? transaction.amount,
-        category: result['category'] ?? transaction.category,
-        note: result['note'],
-        date: transaction.date,
-        isExpense: transaction.isExpense,
-        isRecurring: 1,
-        frequency: result['frequency'] ?? transaction.frequency,
-        nextOccurrence: transaction.nextOccurrence,
-      );
-
-      await DatabaseHelper.instance.updateTransaction(updatedTransaction);
-      await _loadData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Scheduled transaction updated'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    }
-  }
-
   Widget _buildGaugeChart() {
     if (_totalBudget == 0) {
       return const Card(
@@ -445,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.2),
+                          color: color.withAlpha(51),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -581,6 +319,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildGaugeChart(),
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Category Spending',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          ..._categorySpending.entries.map((entry) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(entry.key),
+                                    Text(
+                                      '\$${entry.value.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -790,6 +561,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
     );
+
+    if (result != null) {
+      final transaction = Transaction(
+        amount: result['amount'],
+        category: result['category'],
+        note: result['note'],
+        date: result['date'],
+        isExpense: result['isExpense'],
+        isRecurring: result['isRecurring'] ? 1 : 0,
+        frequency: result['frequency'],
+      );
+      await DatabaseHelper.instance.insertTransaction(transaction);
+      await _loadData();
+    }
   }
 
   @override

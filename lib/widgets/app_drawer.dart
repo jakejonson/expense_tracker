@@ -4,10 +4,7 @@ import '../screens/category_management_screen.dart';
 import '../screens/category_mapping_screen.dart';
 import '../models/transaction.dart';
 import '../services/transaction_service.dart';
-import '../utils/constants.dart';
-import '../utils/string_extensions.dart';
 import 'package:intl/intl.dart';
-import '../widgets/category_selection_dialog.dart';
 
 class AppDrawer extends StatefulWidget {
   final Function() onExport;
@@ -68,90 +65,122 @@ class _AppDrawerState extends State<AppDrawer> {
           DrawerHeader(
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primary,
-            ),
-            child: const Text(
-              'Expense Tracker',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.primary.withOpacity(0.8),
+                ],
               ),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text(
+                  'Expense Tracker',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Track your finances',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
           ),
-          ListTile(
-            leading: const Icon(Icons.download),
-            title: const Text('Import'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ImportScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.upload),
-            title: const Text('Export'),
-            onTap: () {
-              Navigator.pop(context);
-              widget.onExport();
-            },
-          ),
-          ExpansionTile(
-            leading: const Icon(Icons.category),
-            title: const Text('Categories'),
-            children: [
-              ListTile(
-                leading: const Icon(Icons.settings),
-                title: const Text('Category Management'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CategoryManagementScreen(),
-                    ),
-                  );
-                },
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: CircularProgressIndicator(),
               ),
-              ListTile(
-                leading: const Icon(Icons.map),
-                title: const Text('Category Mapping'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const CategoryMappingScreen(),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          ListTile(
-            leading: const Icon(Icons.history),
-            title: const Text('Recent Transactions'),
-            onTap: () async {
-              Navigator.pop(context);
-              await _loadData();
-              if (mounted) {
-                _showTransactionsDialog(
-                    context, _last20Transactions, 'Recent Transactions');
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.schedule),
-            title: const Text('Scheduled Transactions'),
-            onTap: () async {
-              Navigator.pop(context);
-              await _loadData();
-              if (mounted) {
-                _showTransactionsDialog(
-                    context, _scheduledTransactions, 'Scheduled Transactions');
-              }
-            },
-          ),
+            )
+          else ...[
+            ListTile(
+              leading: const Icon(Icons.download),
+              title: const Text('Import'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ImportScreen()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.upload),
+              title: const Text('Export'),
+              onTap: () {
+                Navigator.pop(context);
+                widget.onExport();
+              },
+            ),
+            ExpansionTile(
+              leading: const Icon(Icons.category),
+              title: const Text('Categories'),
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: const Text('Category Management'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CategoryManagementScreen(),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.map),
+                  title: const Text('Category Mapping'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CategoryMappingScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Recent Transactions'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _loadData();
+                if (mounted) {
+                  _showTransactionsDialog(
+                      context, _last20Transactions, 'Recent Transactions');
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.schedule),
+              title: const Text('Scheduled Transactions'),
+              onTap: () async {
+                Navigator.pop(context);
+                await _loadData();
+                if (mounted) {
+                  _showTransactionsDialog(context, _scheduledTransactions,
+                      'Scheduled Transactions');
+                }
+              },
+            ),
+          ],
         ],
       ),
     );
