@@ -442,54 +442,53 @@ class _ReportsScreenState extends State<ReportsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
-        children: [
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Column(
               children: [
-                MonthSelector(
-                  selectedMonth: _selectedMonth,
-                  onMonthChanged: _onMonthChanged,
+                Stack(
+                  children: [
+                    MonthSelector(
+                      selectedMonth: _selectedMonth,
+                      onMonthChanged: _onMonthChanged,
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 0,
+                      bottom: 0,
+                      child: IconButton(
+                        icon: Icon(
+                          Icons.date_range,
+                          color: _startDate != null && _endDate != null
+                              ? Theme.of(context).primaryColor
+                              : null,
+                        ),
+                        tooltip: _startDate != null && _endDate != null
+                            ? '${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d').format(_endDate!)}'
+                            : 'Select Date Range',
+                        onPressed: _selectDateRange,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _selectDateRange,
-                    icon: const Icon(Icons.date_range),
-                    label: Text(_startDate != null && _endDate != null
-                        ? '${DateFormat('MMM d').format(_startDate!)} - ${DateFormat('MMM d').format(_endDate!)}'
-                        : 'Select Date Range'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildYearlyTrendChart(),
+                        const SizedBox(height: 16),
+                        _buildMonthlyTrendChart(),
+                        const SizedBox(height: 16),
+                        _buildSummaryCards(),
+                        const SizedBox(height: 16),
+                        _buildSuperCategoryPieChart(),
+                        const SizedBox(height: 16),
+                        _buildExpensePieChart(),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildYearlyTrendChart(),
-                  const SizedBox(height: 16),
-                  _buildMonthlyTrendChart(),
-                  const SizedBox(height: 16),
-                  _buildSummaryCards(),
-                  const SizedBox(height: 16),
-                  _buildSuperCategoryPieChart(),
-                  const SizedBox(height: 16),
-                  _buildExpensePieChart(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

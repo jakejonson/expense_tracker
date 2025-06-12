@@ -315,8 +315,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ? a.date.compareTo(b.date)
               : b.date.compareTo(a.date);
         } else {
-          // Always sort amount in descending order
-          return b.amount.compareTo(a.amount);
+          return _sortAscending
+              ? a.amount.compareTo(b.amount)
+              : b.amount.compareTo(a.amount);
         }
       });
   }
@@ -325,11 +326,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() {
       if (_sortBy == 'date') {
         _sortBy = 'amount';
-        _sortAscending = false;
       } else {
         _sortBy = 'date';
-        _sortAscending = !_sortAscending;
       }
+    });
+  }
+
+  void _toggleSortOrder() {
+    setState(() {
+      _sortAscending = !_sortAscending;
     });
   }
 
@@ -388,11 +393,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
             IconButton(
               icon: Icon(
-                _sortBy == 'date' ? Icons.calendar_today : Icons.attach_money,
-                color: _sortAscending ? Colors.blue : null,
+                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                color: Colors.blue,
               ),
               tooltip:
-                  'Sort by ${_sortBy} (${_sortAscending ? 'ascending' : 'descending'})',
+                  'Toggle sort order (${_sortAscending ? 'ascending' : 'descending'})',
+              onPressed: _toggleSortOrder,
+            ),
+            IconButton(
+              icon: Icon(
+                _sortBy == 'date' ? Icons.calendar_today : Icons.attach_money,
+              ),
+              tooltip: 'Sort by ${_sortBy}',
               onPressed: _toggleSort,
             ),
             if (_isSelectionMode && _selectedTransactions.isNotEmpty) ...[
