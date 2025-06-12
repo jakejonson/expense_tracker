@@ -740,8 +740,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${DateFormat.yMMMd().format(budget.startDate)} - ${DateFormat.yMMMd().format(budget.endDate)}',
-                                  style: Theme.of(context).textTheme.bodySmall,
+                                        'Remaining: \$${(budget.amount - spent).toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          color: (budget.amount - spent) < 0
+                                              ? Colors.red
+                                              : Colors.green,
+                                        ),
                                 ),
                               ],
                             ),

@@ -131,51 +131,25 @@ class _AppDrawerState extends State<AppDrawer> {
           ListTile(
             leading: const Icon(Icons.history),
             title: const Text('Recent Transactions'),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
-              if (_isLoading) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Loading transactions...'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-                return;
+              await _loadData();
+              if (mounted) {
+                _showTransactionsDialog(
+                    context, _last20Transactions, 'Recent Transactions');
               }
-              _showTransactionsDialog(
-                  context, _last20Transactions, 'Recent Transactions');
             },
           ),
           ListTile(
             leading: const Icon(Icons.schedule),
             title: const Text('Scheduled Transactions'),
-            onTap: () {
+            onTap: () async {
               Navigator.pop(context);
-              if (_isLoading) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Loading transactions...'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-                return;
+              await _loadData();
+              if (mounted) {
+                _showTransactionsDialog(
+                    context, _scheduledTransactions, 'Scheduled Transactions');
               }
-              _showTransactionsDialog(
-                  context, _scheduledTransactions, 'Scheduled Transactions');
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Refresh Data'),
-            onTap: () {
-              Navigator.pop(context);
-              _loadData();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Refreshing data...'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
             },
           ),
         ],
