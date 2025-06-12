@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import 'category_grid.dart';
 
 class CategorySelectionDialog extends StatelessWidget {
   final bool isExpense;
@@ -22,27 +23,13 @@ class CategorySelectionDialog extends StatelessWidget {
       title: Text('Select ${isExpense ? "Expense" : "Income"} Category'),
       content: SizedBox(
         width: double.maxFinite,
-        child: ListView.builder(
-          shrinkWrap: true,
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            final icon = isExpense
-                ? Constants.expenseCategoryIcons[category]
-                : Constants.incomeCategoryIcons[category];
-
-            return ListTile(
-              leading: Icon(
-                icon,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              title: Text(category),
-              selected: category == selectedCategory,
-              onTap: () {
-                onCategorySelected(category);
-                Navigator.pop(context);
-              },
-            );
+        child: CategoryGrid(
+          categories: categories,
+          isExpense: isExpense,
+          selectedCategory: selectedCategory,
+          onCategorySelected: (category) {
+            onCategorySelected(category);
+            Navigator.pop(context);
           },
         ),
       ),
