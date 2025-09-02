@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
           onBackground: Colors.white,
           onError: Colors.white,
         ),
-        cardTheme: CardTheme(
+        cardTheme: CardThemeData(
           color: const Color(0xFF1A1A2E),
           elevation: 4,
           shape: RoundedRectangleBorder(
@@ -194,7 +194,7 @@ class MyApp extends StatelessWidget {
           ),
           behavior: SnackBarBehavior.floating,
         ),
-        dialogTheme: DialogTheme(
+        dialogTheme: DialogThemeData(
           backgroundColor: const Color(0xFF1A1A2E),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
@@ -309,4 +309,4 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
-} 
+}
