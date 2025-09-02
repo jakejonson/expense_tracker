@@ -190,7 +190,7 @@ class DatabaseHelper {
   // Transaction methods
   Future<int> insertTransaction(Transaction transaction) async {
     final db = await database;
-    
+
     // Check for duplicate transactions
     final duplicates = await findDuplicateTransactions(transaction);
     if (duplicates.isNotEmpty) {
@@ -437,13 +437,20 @@ class DatabaseHelper {
       // Only create the transaction if it's in the past
       if (nextDate.isBefore(now)) {
         // Check if a transaction already exists for this date
+        // Use date-only comparison to avoid time-based duplicates
+        final startOfDay =
+            DateTime(nextDate.year, nextDate.month, nextDate.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+
         final existingTransactions = await db.query(
           'transactions',
-          where: 'amount = ? AND category = ? AND date = ? AND isExpense = ?',
+          where:
+              'amount = ? AND category = ? AND date BETWEEN ? AND ? AND isExpense = ?',
           whereArgs: [
             originalTransaction['amount'],
             originalTransaction['category'],
-            nextDate.toIso8601String(),
+            startOfDay.toIso8601String(),
+            endOfDay.toIso8601String(),
             originalTransaction['isExpense'],
           ],
         );
@@ -657,7 +664,7 @@ class DatabaseHelper {
     print('=== Starting recurring transaction check ===');
     print('Current time: ${now.toIso8601String()}');
     final List<Transaction> createdTransactions = [];
-    
+
     // Get all recurring transactions that have a nextOccurrence in the past
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
@@ -678,19 +685,26 @@ class DatabaseHelper {
       print('Category: ${map['category']}');
       print('Frequency: ${map['frequency']}');
       print('Next Occurrence: ${map['nextOccurrence']}');
-      
+
       final transaction = Transaction.fromMap(map);
       if (transaction.frequency != null) {
         final nextOccurrence = DateTime.parse(map['nextOccurrence'] as String);
 
         // Check if a transaction already exists for this nextOccurrence date
+        // Use date-only comparison to avoid time-based duplicates
+        final startOfDay = DateTime(
+            nextOccurrence.year, nextOccurrence.month, nextOccurrence.day);
+        final endOfDay = startOfDay.add(const Duration(days: 1));
+
         final existingTransactions = await db.query(
           'transactions',
-          where: 'amount = ? AND category = ? AND date = ? AND isExpense = ?',
+          where:
+              'amount = ? AND category = ? AND date BETWEEN ? AND ? AND isExpense = ?',
           whereArgs: [
             transaction.amount,
             transaction.category,
-            nextOccurrence.toIso8601String(),
+            startOfDay.toIso8601String(),
+            endOfDay.toIso8601String(),
             transaction.isExpense ? 1 : 0,
           ],
         );
@@ -777,13 +791,20 @@ class DatabaseHelper {
       final nextOccurrence = DateTime.parse(map['nextOccurrence'] as String);
 
       // Check if a transaction already exists for this nextOccurrence date
+      // Use date-only comparison to avoid time-based duplicates
+      final startOfDay = DateTime(
+          nextOccurrence.year, nextOccurrence.month, nextOccurrence.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+
       final existingTransactions = await db.query(
         'transactions',
-        where: 'amount = ? AND category = ? AND date = ? AND isExpense = ?',
+        where:
+            'amount = ? AND category = ? AND date BETWEEN ? AND ? AND isExpense = ?',
         whereArgs: [
           transaction.amount,
           transaction.category,
-          nextOccurrence.toIso8601String(),
+          startOfDay.toIso8601String(),
+          endOfDay.toIso8601String(),
           transaction.isExpense ? 1 : 0,
         ],
       );
@@ -850,4 +871,4 @@ class DatabaseHelper {
     }
     print('=== Cleanup completed ===');
   }
-} 
+}
