@@ -149,11 +149,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     showDialog(
                       context: context,
                       builder: (context) => CategorySelectionDialog(
-                        isExpense: _isExpense ?? true,
-                        selectedCategory: _selectedCategory,
+                        isExpense: isExpense ?? true,
+                        selectedCategory: selectedCategory,
                         onCategorySelected: (category) {
                           setState(() {
-                            _selectedCategory = category;
+                            selectedCategory = category;
                           });
                         },
                       ),
@@ -167,18 +167,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                     child: Row(
                       children: [
-                        if (_selectedCategory != null) ...[
+                        if (selectedCategory != null) ...[
                           Icon(
-                            _isExpense == true
+                            isExpense == true
                                 ? Constants
-                                    .expenseCategoryIcons[_selectedCategory]
+                                    .expenseCategoryIcons[selectedCategory]
                                 : Constants
-                                    .incomeCategoryIcons[_selectedCategory],
+                                    .incomeCategoryIcons[selectedCategory],
                             color: Theme.of(context).colorScheme.primary,
                           ),
                           const SizedBox(width: 8),
                         ],
-                        Text(_selectedCategory ?? 'Select Category'),
+                        Text(selectedCategory ?? 'Select Category'),
                       ],
                     ),
                   ),
@@ -973,10 +973,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _lastSortBy = _sortBy;
     _lastSortAscending = _sortAscending;
     _lastSelectedMonth = _selectedMonth;
-    
+
     _searchController.dispose();
     _editAmountController.dispose();
     _editNoteController.dispose();
     super.dispose();
   }
-} 
+}
