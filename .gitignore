@@ -1,3 +1,6 @@
+# Agent / local AI context (not committed)
+.agents/
+
 # Miscellaneous
 *.class
 *.log
